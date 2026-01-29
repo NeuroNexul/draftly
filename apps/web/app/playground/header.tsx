@@ -14,6 +14,8 @@ type Props = {
   devbarOpen: boolean;
   setDevbarOpen: Dispatch<SetStateAction<boolean>>;
   saveStatus: SaveStatus;
+  showCode: boolean;
+  setShowCode: Dispatch<SetStateAction<boolean>>;
 };
 
 export default function Header({
@@ -22,6 +24,8 @@ export default function Header({
   devbarOpen,
   setDevbarOpen,
   saveStatus,
+  showCode,
+  setShowCode,
 }: Props) {
   return (
     <header className="h-12 w-full border-b flex items-center justify-between py-1 px-4">
@@ -56,6 +60,13 @@ export default function Header({
             )}
           </div>
         )}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setShowCode(!showCode)}
+        >
+          Toggle Code
+        </Button>
         <Button
           variant="outline"
           size="sm"
