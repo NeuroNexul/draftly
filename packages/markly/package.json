@@ -34,10 +34,7 @@
     "zod": "^4.3.6"
   },
   "exports": {
-    ".": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
-    },
+    "./*": "./src/*",
     "./styles": {
       "import": "./dist/styles/index.css"
     }
