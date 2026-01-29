@@ -21,6 +21,7 @@ export default function Page() {
   const [devbarOpen, setDevbarOpen] = useState(true);
   const [contents, setContents] = useState<Content[]>([]);
   const [currentContent, setCurrentContent] = useState<number>(-1);
+  const [showCode, setShowCode] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -142,6 +143,8 @@ export default function Page() {
         devbarOpen={devbarOpen}
         setDevbarOpen={setDevbarOpen}
         saveStatus={saveStatus}
+        showCode={showCode}
+        setShowCode={setShowCode}
       />
 
       {/* Main */}
