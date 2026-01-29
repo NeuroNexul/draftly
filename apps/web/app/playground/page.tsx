@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@workspace/ui/lib/utils";
 import Footer from "./footer";
 import Header from "./header";
@@ -8,12 +8,80 @@ import Devbar from "./devbar";
 import Sidebar from "./sidebar";
 import { Content } from "./types";
 import { Button } from "@workspace/ui/components/button";
+import { Loader2 } from "lucide-react";
+
+const STORAGE_KEY = "markly-playground-contents";
+const STORAGE_CURRENT_KEY = "markly-playground-current";
+const DEBOUNCE_MS = 500;
+
+export type SaveStatus = "idle" | "saving" | "saved";
 
 export default function Page() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [devbarOpen, setDevbarOpen] = useState(true);
   const [contents, setContents] = useState<Content[]>([]);
   const [currentContent, setCurrentContent] = useState<number>(-1);
+  const [isLoading, setIsLoading] = useState(true);
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const savedIndicatorTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Load from localStorage on mount
+  useEffect(() => {
+    const storedContents = localStorage.getItem(STORAGE_KEY);
+    const storedCurrent = localStorage.getItem(STORAGE_CURRENT_KEY);
+
+    if (storedContents) {
+      try {
+        const parsed = JSON.parse(storedContents) as Content[];
+        setContents(parsed);
+      } catch {
+        console.error("Failed to parse stored contents");
+      }
+    }
+
+    if (storedCurrent) {
+      const parsedCurrent = parseInt(storedCurrent, 10);
+      if (!isNaN(parsedCurrent)) {
+        setCurrentContent(parsedCurrent);
+      }
+    }
+
+    setIsLoading(false);
+  }, []);
+
+  // Debounced save to localStorage
+  const saveToStorage = useCallback((data: Content[], current: number) => {
+    // Clear any pending save
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+    if (savedIndicatorTimeoutRef.current) {
+      clearTimeout(savedIndicatorTimeoutRef.current);
+    }
+
+    setSaveStatus("saving");
+
+    saveTimeoutRef.current = setTimeout(() => {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      localStorage.setItem(STORAGE_CURRENT_KEY, current.toString());
+      setSaveStatus("saved");
+
+      // Reset to idle after showing "saved" for a bit
+      savedIndicatorTimeoutRef.current = setTimeout(() => {
+        setSaveStatus("idle");
+      }, 2000);
+    }, DEBOUNCE_MS);
+  }, []);
+
+  // Cleanup timeouts
+  useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+      if (savedIndicatorTimeoutRef.current)
+        clearTimeout(savedIndicatorTimeoutRef.current);
+    };
+  }, []);
 
   const counts = useMemo(() => {
     if (currentContent === -1) return { words: 0, lines: 0, char: 0 };
@@ -27,25 +95,42 @@ export default function Page() {
   }, [currentContent, contents[currentContent]?.content]);
 
   function handleContentChange(id: string, content: string) {
-    setContents((c) =>
-      c.map((currentContent) =>
+    setContents((c) => {
+      const updated = c.map((currentContent) =>
         currentContent.id === id
           ? { ...currentContent, content }
           : currentContent,
-      ),
-    );
+      );
+      saveToStorage(updated, currentContent);
+      return updated;
+    });
   }
 
   function addNewContent(title: string) {
-    setContents((c) => [
-      ...c,
-      {
-        id: crypto.randomUUID(),
-        title,
-        content: `# ${title}\n\n## Hello World`,
-      },
-    ]);
-    setCurrentContent(contents.length);
+    const newContent: Content = {
+      id: crypto.randomUUID(),
+      title,
+      content: `# ${title}\n\n## Hello World`,
+    };
+    const newContents = [...contents, newContent];
+    const newIndex = contents.length;
+    setContents(newContents);
+    setCurrentContent(newIndex);
+    saveToStorage(newContents, newIndex);
+  }
+
+  function handleSetCurrentContent(index: number) {
+    setCurrentContent(index);
+    saveToStorage(contents, index);
+  }
+
+  if (isLoading) {
+    return (
+      <div className="min-h-svh h-svh flex flex-col items-center justify-center gap-3">
+        <Loader2 className="size-8 animate-spin text-muted-foreground" />
+        <span className="text-muted-foreground font-mono">Loading...</span>
+      </div>
+    );
   }
 
   return (
@@ -56,6 +141,7 @@ export default function Page() {
         setSidebarOpen={setSidebarOpen}
         devbarOpen={devbarOpen}
         setDevbarOpen={setDevbarOpen}
+        saveStatus={saveStatus}
       />
 
       {/* Main */}
@@ -87,7 +173,7 @@ export default function Page() {
           <Sidebar
             contents={contents}
             currentContent={currentContent}
-            setCurrentContent={setCurrentContent}
+            setCurrentContent={handleSetCurrentContent}
             addNewContent={addNewContent}
           />
         </div>
