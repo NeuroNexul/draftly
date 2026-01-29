@@ -14,6 +14,7 @@ import {
 } from "@codemirror/lang-markdown";
 import type { MarkdownConfig } from "@lezer/markdown";
 import { MarklyPlugin, PluginContext } from "./types";
+import { createMarklyViewExtension } from "./view-plugin";
 import {
   defaultKeymap,
   history,
@@ -21,6 +22,7 @@ import {
   indentWithTab,
 } from "@codemirror/commands";
 import { indentOnInput } from "@codemirror/language";
+import { languages } from "@codemirror/language-data";
 
 /**
  * Configuration options for the Markly editor
@@ -156,6 +158,7 @@ export function markly(config: MarklyConfig = {}): Extension[] {
 
   // Markly extensions
   const marklyExtensions: Extension[] = [];
+  if (!disableViewPlugin) marklyExtensions.push(createMarklyViewExtension());
   if (!disableViewPlugin || configLineWrapping)
     marklyExtensions.push(EditorView.lineWrapping);
 
