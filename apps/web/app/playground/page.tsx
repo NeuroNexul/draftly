@@ -154,12 +154,20 @@ export default function Page() {
 
   const defaultExtensions = useMemo<Extension[]>(
     () =>
-      showCode
-        ? [
-            markdown({ base: markdownLanguage, codeLanguages: languages }),
-            jsonLanguage,
-          ]
-        : markly(),
+      markly({
+        plugins: [],
+        markdown: [],
+        extensions: [],
+        keymap: [],
+        disableViewPlugin: showCode,
+        defaultKeybindings: true,
+        history: true,
+        indentWithTab: true,
+        drawSelection: true,
+        highlightActiveLine: true,
+        rectangularSelection: true,
+        lineWrapping: true,
+      }),
     [showCode],
   );
 
@@ -234,29 +242,7 @@ export default function Page() {
                 handleContentChange(contents[currentContent]!.id, value)
               }
               theme={githubDark}
-              extensions={[
-                ...defaultExtensions,
-                EditorView.lineWrapping,
-                history(),
-                drawSelection(),
-                rectangularSelection(),
-                highlightActiveLine(),
-                indentOnInput(),
-                keymap.of([
-                  indentWithTab,
-                  ...markdownKeymap,
-                  ...defaultKeymap,
-                  ...historyKeymap,
-                ]),
-              ]}
-              basicSetup={{
-                drawSelection: true,
-                highlightActiveLine: true,
-                rectangularSelection: true,
-                indentOnInput: true,
-                lineNumbers: showCode,
-                foldGutter: showCode,
-              }}
+              extensions={[...defaultExtensions]}
             />
           ) : (
             <div className="w-full h-full flex flex-col items-center justify-center">

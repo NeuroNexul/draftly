@@ -1,8 +1,26 @@
 import { Extension, Prec } from "@codemirror/state";
-import { KeyBinding, keymap } from "@codemirror/view";
-import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
+import {
+  drawSelection,
+  EditorView,
+  highlightActiveLine,
+  KeyBinding,
+  keymap,
+  rectangularSelection,
+} from "@codemirror/view";
+import {
+  markdown,
+  markdownKeymap,
+  markdownLanguage,
+} from "@codemirror/lang-markdown";
 import type { MarkdownConfig } from "@lezer/markdown";
-import { MarklyPlugin, PluginContext } from "./types.js";
+import { MarklyPlugin, PluginContext } from "./types";
+import {
+  defaultKeymap,
+  history,
+  historyKeymap,
+  indentWithTab,
+} from "@codemirror/commands";
+import { indentOnInput } from "@codemirror/language";
 
 /**
  * Configuration options for the Markly editor
@@ -19,6 +37,30 @@ export interface MarklyConfig {
 
   /** Additional keybindings */
   keymap?: KeyBinding[];
+
+  /** Disable the built-in view plugin (for raw markdown mode) */
+  disableViewPlugin?: boolean;
+
+  /** Enable default keybindings */
+  defaultKeybindings?: boolean;
+
+  /** Enable history */
+  history?: boolean;
+
+  /** Enable indent with tab */
+  indentWithTab?: boolean;
+
+  /** Draw selection */
+  drawSelection?: boolean;
+
+  /** Highlight active line */
+  highlightActiveLine?: boolean;
+
+  /** Rectangular selection */
+  rectangularSelection?: boolean;
+
+  /** Line wrapping in raw markdown mode */
+  lineWrapping?: boolean;
 }
 
 /**
@@ -43,7 +85,19 @@ export interface MarklyConfig {
  * ```
  */
 export function markly(config: MarklyConfig = {}): Extension[] {
-  const { plugins = [], extensions = [], keymap: configKeymap = [] } = config;
+  const {
+    plugins = [],
+    extensions = [],
+    keymap: configKeymap = [],
+    disableViewPlugin = false,
+    defaultKeybindings = true,
+    history: configHistory = true,
+    indentWithTab: configIndentWithTab = true,
+    drawSelection: configDrawSelection = true,
+    highlightActiveLine: configHighlightActiveLine = true,
+    rectangularSelection: configRectangularSelection = true,
+    lineWrapping: configLineWrapping = true,
+  } = config;
 
   // Collect all extensions from plugins
   const pluginExtensions: Extension[] = [];
@@ -85,21 +139,41 @@ export function markly(config: MarklyConfig = {}): Extension[] {
     extensions: markdownExtensions,
   });
 
+  // Core CodeMirror extensions (in order)
+  const baseExtensions: Extension[] = [
+    ...(defaultKeybindings ? [keymap.of(defaultKeymap)] : []),
+    ...(configHistory ? [history(), keymap.of(historyKeymap)] : []),
+    ...(configIndentWithTab
+      ? [indentOnInput(), keymap.of([indentWithTab])]
+      : []),
+    ...(configDrawSelection ? [drawSelection()] : []),
+    ...(configHighlightActiveLine ? [highlightActiveLine()] : []),
+    ...(configRectangularSelection ? [rectangularSelection()] : []),
+  ];
+
+  // Markly extensions
+  const marklyExtensions: Extension[] = [];
+  if (!disableViewPlugin || configLineWrapping)
+    marklyExtensions.push(EditorView.lineWrapping);
+
   // Compose all extensions together
   const composedExtensions: Extension[] = [
     // Core markdown support (highest priority)
     Prec.high(markdownSupport),
+    Prec.high(keymap.of(markdownKeymap)),
 
-    // Plugin extensions
+    // Core CodeMirror extensions
+    ...baseExtensions,
+
+    // Markly view plugin for rich rendering
+    ...marklyExtensions,
+
+    // Plugin extensions & keymaps
     ...pluginExtensions,
-
-    // Plugin keymaps
     pluginKeymaps.length > 0 ? keymap.of(pluginKeymaps) : [],
 
-    // Config keymaps
+    // Config keymaps & extensions
     configKeymap.length > 0 ? keymap.of(configKeymap) : [],
-
-    // Additional config extensions
     ...extensions,
   ];
 
