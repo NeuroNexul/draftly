@@ -1,7 +1,7 @@
 import { Extension } from "@codemirror/state";
 import { KeyBinding } from "@codemirror/view";
 import { MarkdownConfig } from "@lezer/markdown";
-import { MarklyConfig } from "./markly.js";
+import { MarklyConfig } from "./markly";
 
 /**
  * Context passed to plugin lifecycle methods
