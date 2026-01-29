@@ -10,6 +10,32 @@ import { Content } from "./types";
 import { Button } from "@workspace/ui/components/button";
 import { Loader2 } from "lucide-react";
 
+import CodeMirror, {
+  drawSelection,
+  EditorView,
+  Extension,
+  highlightActiveLine,
+  keymap,
+  ReactCodeMirrorRef,
+  rectangularSelection,
+} from "@uiw/react-codemirror";
+import { githubDark } from "@uiw/codemirror-theme-github";
+import {
+  defaultKeymap,
+  history,
+  historyKeymap,
+  indentWithTab,
+} from "@codemirror/commands";
+import {
+  markdown,
+  markdownKeymap,
+  markdownLanguage,
+} from "@codemirror/lang-markdown";
+import { indentOnInput } from "@codemirror/language";
+import { languages } from "@codemirror/language-data";
+import { jsonLanguage } from "@codemirror/lang-json";
+import markly from "markly";
+
 const STORAGE_KEY = "markly-playground-contents";
 const STORAGE_CURRENT_KEY = "markly-playground-current";
 const DEBOUNCE_MS = 500;
@@ -120,10 +146,22 @@ export default function Page() {
     saveToStorage(newContents, newIndex);
   }
 
+  const editor = useRef<ReactCodeMirrorRef>(null);
   function handleSetCurrentContent(index: number) {
     setCurrentContent(index);
     saveToStorage(contents, index);
   }
+
+  const defaultExtensions = useMemo<Extension[]>(
+    () =>
+      showCode
+        ? [
+            markdown({ base: markdownLanguage, codeLanguages: languages }),
+            jsonLanguage,
+          ]
+        : markly(),
+    [showCode],
+  );
 
   if (isLoading) {
     return (
@@ -184,15 +222,41 @@ export default function Page() {
         {/* Editor */}
         <div className="flex-1 h-full border-r flex items-center justify-center">
           {currentContent !== -1 ? (
-            <textarea
-              className="w-full h-full resize-none p-4 outline-none"
-              value={contents[currentContent]!.content}
-              onChange={(e) =>
-                handleContentChange(
-                  contents[currentContent]!.id,
-                  e.target.value,
-                )
+            <CodeMirror
+              id={"markly-editor"}
+              ref={editor}
+              autoFocus
+              className={"h-full w-full"}
+              height="100%"
+              width="100%"
+              value={contents[currentContent]?.content}
+              onChange={(value) =>
+                handleContentChange(contents[currentContent]!.id, value)
               }
+              theme={githubDark}
+              extensions={[
+                ...defaultExtensions,
+                EditorView.lineWrapping,
+                history(),
+                drawSelection(),
+                rectangularSelection(),
+                highlightActiveLine(),
+                indentOnInput(),
+                keymap.of([
+                  indentWithTab,
+                  ...markdownKeymap,
+                  ...defaultKeymap,
+                  ...historyKeymap,
+                ]),
+              ]}
+              basicSetup={{
+                drawSelection: true,
+                highlightActiveLine: true,
+                rectangularSelection: true,
+                indentOnInput: true,
+                lineNumbers: showCode,
+                foldGutter: showCode,
+              }}
             />
           ) : (
             <div className="w-full h-full flex flex-col items-center justify-center">
