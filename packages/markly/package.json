@@ -30,12 +30,13 @@
   },
   "dependencies": {
     "@lezer/common": "^1.5.0",
+    "@lezer/highlight": "^1.2.3",
     "@lezer/markdown": "^1.6.3",
     "zod": "^4.3.6"
   },
   "exports": {
-    "./*": "./src/*.ts",
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./types": "./src/types.ts"
   },
   "files": [
     "dist",

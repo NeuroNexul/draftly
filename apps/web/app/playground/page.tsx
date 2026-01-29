@@ -11,29 +11,10 @@ import { Button } from "@workspace/ui/components/button";
 import { Loader2 } from "lucide-react";
 
 import CodeMirror, {
-  drawSelection,
-  EditorView,
   Extension,
-  highlightActiveLine,
-  keymap,
   ReactCodeMirrorRef,
-  rectangularSelection,
 } from "@uiw/react-codemirror";
 import { githubDark } from "@uiw/codemirror-theme-github";
-import {
-  defaultKeymap,
-  history,
-  historyKeymap,
-  indentWithTab,
-} from "@codemirror/commands";
-import {
-  markdown,
-  markdownKeymap,
-  markdownLanguage,
-} from "@codemirror/lang-markdown";
-import { indentOnInput } from "@codemirror/language";
-import { languages } from "@codemirror/language-data";
-import { jsonLanguage } from "@codemirror/lang-json";
 import markly from "markly";
 
 const STORAGE_KEY = "markly-playground-contents";

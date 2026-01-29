@@ -68,6 +68,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@lezer/common": "^1.5.0",
+        "@lezer/highlight": "^1.2.3",
         "@lezer/markdown": "^1.6.3",
         "zod": "^4.3.6",
       },
