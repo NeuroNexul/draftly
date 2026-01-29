@@ -136,7 +136,10 @@ export function markly(config: MarklyConfig = {}): Extension[] {
   // Build the base markdown language support
   const markdownSupport = markdown({
     base: markdownLanguage,
+    codeLanguages: languages,
     extensions: markdownExtensions,
+    addKeymap: true,
+    completeHTMLTags: true,
   });
 
   // Core CodeMirror extensions (in order)
