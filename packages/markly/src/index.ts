@@ -1,1 +1,5 @@
-console.log("Hello World");
+import { markly } from "./markly.js";
+
+export default markly;
+
+export * from "./markly.js";
