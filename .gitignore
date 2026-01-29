@@ -36,3 +36,5 @@ npm-debug.log*
 *.pem
 
 *.plan.md
+
+.agent
