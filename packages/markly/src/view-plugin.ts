@@ -1,5 +1,5 @@
-import { Decoration, DecorationSet, EditorView, ViewPlugin, ViewUpdate, WidgetType } from "@codemirror/view";
-import { Extension, Range, RangeSetBuilder } from "@codemirror/state";
+import { Decoration, DecorationSet, EditorView, ViewPlugin, ViewUpdate } from "@codemirror/view";
+import { Extension, Facet, Range, RangeSetBuilder } from "@codemirror/state";
 import { syntaxHighlighting, syntaxTree } from "@codemirror/language";
 import { cursorInRange, selectionOverlapsRange } from "./utils";
 import { highlightStyle, marklyBaseTheme } from "./theme";
@@ -72,6 +72,13 @@ const lineDecorations = {
 };
 
 /**
+ * Facet to register plugins with the view plugin
+ */
+export const marklyPluginsFacet = Facet.define<MarklyPlugin[], MarklyPlugin[]>({
+  combine: (values) => values.flat(),
+});
+
+/**
  * Task checkbox widget
  */
 class TaskCheckboxWidget extends WidgetType {
@@ -119,8 +126,10 @@ class TaskCheckboxWidget extends WidgetType {
 
 /**
  * Build decorations for the visible viewport
+ * @param view - The EditorView instance
+ * @param plugins - Optional array of plugins to invoke for decorations
  */
-function buildDecorations(view: EditorView): DecorationSet {
+function buildDecorations(view: EditorView, plugins: MarklyPlugin[] = []): DecorationSet {
   const builder = new RangeSetBuilder<Decoration>();
   const decorations: Range<Decoration>[] = [];
 
@@ -301,6 +310,23 @@ function buildDecorations(view: EditorView): DecorationSet {
     },
   });
 
+  // Allow plugins to contribute decorations
+  if (plugins.length > 0) {
+    const ctx: DecorationContext = {
+      view,
+      decorations,
+      selectionOverlapsRange: (from, to) => selectionOverlapsRange(view, from, to),
+      cursorInRange: (from, to) => cursorInRange(view, from, to),
+    };
+
+    // Sort plugins by priority and invoke each one's decoration builder
+    const sortedPlugins = [...plugins].sort((a, b) => a.decorationPriority - b.decorationPriority);
+
+    for (const plugin of sortedPlugins) {
+      plugin.buildDecorations(ctx);
+    }
+  }
+
   // Sort decorations by position (required for RangeSetBuilder)
   decorations.sort((a, b) => a.from - b.from || a.value.startSide - b.value.startSide);
 
@@ -318,18 +344,33 @@ function buildDecorations(view: EditorView): DecorationSet {
  */
 class MarklyViewPluginClass {
   decorations: DecorationSet;
+  private plugins: MarklyPlugin[];
 
   constructor(view: EditorView) {
-    this.decorations = buildDecorations(view);
+    this.plugins = view.state.facet(marklyPluginsFacet);
+    this.decorations = buildDecorations(view, this.plugins);
+
+    // Notify plugins that view is ready
+    for (const plugin of this.plugins) {
+      plugin.onViewReady(view);
+    }
   }
 
   update(update: ViewUpdate) {
+    // Update plugins list if facet changed
+    this.plugins = update.view.state.facet(marklyPluginsFacet);
+
+    // Notify plugins of the update
+    for (const plugin of this.plugins) {
+      plugin.onViewUpdate(update);
+    }
+
     // Rebuild decorations when:
     // - Document changes
     // - Selection changes (to show/hide syntax markers)
     // - Viewport changes
     if (update.docChanged || update.selectionSet || update.viewportChanged) {
-      this.decorations = buildDecorations(update.view);
+      this.decorations = buildDecorations(update.view, this.plugins);
     }
   }
 }
@@ -343,9 +384,10 @@ export const marklyViewPlugin = ViewPlugin.fromClass(MarklyViewPluginClass, {
 });
 
 /**
- * Complete Markly view extension bundle
- * Includes the view plugin and base theme
+ * Create Markly view extension bundle with plugin support
+ * @param plugins - Optional array of MarklyPlugin instances
+ * @returns Extension array including view plugin, theme, and plugin facet
  */
-export function createMarklyViewExtension(): Extension[] {
-  return [marklyViewPlugin, marklyBaseTheme];
+export function createMarklyViewExtension(plugins: MarklyPlugin[] = []): Extension[] {
+  return [marklyPluginsFacet.of(plugins), marklyViewPlugin, marklyBaseTheme];
 }

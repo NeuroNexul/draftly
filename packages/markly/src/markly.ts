@@ -85,6 +85,8 @@ export function markly(config: MarklyConfig = {}): Extension[] {
     lineWrapping: configLineWrapping = true,
   } = config;
 
+  const allPlugins = [...plugins];
+
   // Collect all extensions from plugins
   const pluginExtensions: Extension[] = [];
   const pluginKeymaps: KeyBinding[] = [];
@@ -94,23 +96,26 @@ export function markly(config: MarklyConfig = {}): Extension[] {
   const pluginContext: PluginContext = { config };
 
   // Process each plugin
-  for (const plugin of plugins) {
+  for (const plugin of allPlugins) {
     // Call onRegister lifecycle hook
-    plugin.onRegister?.(pluginContext);
+    plugin.onRegister(pluginContext);
 
-    // Collect extensions
-    if (plugin.extensions) {
-      pluginExtensions.push(...plugin.extensions);
+    // Collect extensions via class method
+    const exts = plugin.getExtensions();
+    if (exts.length > 0) {
+      pluginExtensions.push(...exts);
     }
 
-    // Collect keymaps
-    if (plugin.keymap) {
-      pluginKeymaps.push(...plugin.keymap);
+    // Collect keymaps via class method
+    const keys = plugin.getKeymap();
+    if (keys.length > 0) {
+      pluginKeymaps.push(...keys);
     }
 
-    // Collect markdown parser extensions
-    if (plugin.markdown) {
-      markdownExtensions.push(plugin.markdown);
+    // Collect markdown parser extensions via class method
+    const md = plugin.getMarkdownConfig();
+    if (md) {
+      markdownExtensions.push(md);
     }
   }
 
@@ -132,19 +137,16 @@ export function markly(config: MarklyConfig = {}): Extension[] {
   const baseExtensions: Extension[] = [
     ...(defaultKeybindings ? [keymap.of(defaultKeymap)] : []),
     ...(configHistory ? [history(), keymap.of(historyKeymap)] : []),
-    ...(configIndentWithTab
-      ? [indentOnInput(), keymap.of([indentWithTab])]
-      : []),
+    ...(configIndentWithTab ? [indentOnInput(), keymap.of([indentWithTab])] : []),
     ...(configDrawSelection ? [drawSelection()] : []),
-    ...(configHighlightActiveLine ? [highlightActiveLine()] : []),
+    ...(configHighlightActiveLine && disableViewPlugin ? [highlightActiveLine()] : []),
     ...(configRectangularSelection ? [rectangularSelection()] : []),
   ];
 
-  // Markly extensions
+  // Markly extensions (pass plugins for decoration support)
   const marklyExtensions: Extension[] = [];
-  if (!disableViewPlugin) marklyExtensions.push(createMarklyViewExtension());
-  if (!disableViewPlugin || configLineWrapping)
-    marklyExtensions.push(EditorView.lineWrapping);
+  if (!disableViewPlugin) marklyExtensions.push(createMarklyViewExtension(allPlugins));
+  if (!disableViewPlugin || configLineWrapping) marklyExtensions.push(EditorView.lineWrapping);
 
   // Compose all extensions together
   const composedExtensions: Extension[] = [
