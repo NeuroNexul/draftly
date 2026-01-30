@@ -2,16 +2,9 @@
 
 import * as React from "react";
 import { ThemeProvider as NextThemesProvider, useTheme } from "next-themes";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuLabel,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger,
-} from "@workspace/ui/components/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@workspace/ui/components/dropdown-menu";
 import { Button } from "@workspace/ui/components/button";
-import { Moon, Sun, Monitor } from "lucide-react";
+import { Moon, Sun, Monitor, Check, ChevronDown } from "lucide-react";
 
 // =============================================
 // THEME CONFIGURATION - Edit themes here
@@ -51,21 +44,22 @@ export function ThemeSwitcher() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="size-8">
+        <Button variant="outline" size="sm">
           <CurrentIcon className="size-4" />
+          <span>{theme}</span>
+          <ChevronDown className="size-4 ml-auto" />
           <span className="sr-only">Toggle theme</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent>
         <DropdownMenuLabel>Select Theme</DropdownMenuLabel>
-        <DropdownMenuRadioGroup value={theme} onValueChange={setTheme}>
-          {THEME_OPTIONS.map((option) => (
-            <DropdownMenuRadioItem key={option.value} value={option.value}>
-              <option.icon className="size-4 mr-2" />
-              {option.label}
-            </DropdownMenuRadioItem>
-          ))}
-        </DropdownMenuRadioGroup>
+        {THEME_OPTIONS.map((option) => (
+          <DropdownMenuItem key={option.value} onClick={() => setTheme(option.value)}>
+            <option.icon className="size-4" />
+            {option.label}
+            {theme === option.value && <Check className="size-4 ml-auto" />}
+          </DropdownMenuItem>
+        ))}
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -80,6 +74,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
       attribute="class"
       defaultTheme="system"
       enableSystem
+      storageKey="markly-theme"
       disableTransitionOnChange
       enableColorScheme
       themes={themeValues}
