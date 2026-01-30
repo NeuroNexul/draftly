@@ -13,22 +13,9 @@ export const marklyBaseTheme = EditorView.baseTheme({
     lineHeight: "1.6",
   },
 
-  // Emphasis
-  ".cm-markly-emphasis": {
-    fontStyle: "italic",
-  },
-  ".cm-markly-strong": {
-    fontWeight: "700",
-  },
-  ".cm-markly-strikethrough": {
-    textDecoration: "line-through",
-    opacity: "0.7",
-  },
-
-  // Emphasis marks (* _ ~)
-  ".cm-markly-emphasis-mark": {
-    opacity: "0.3",
-    fontSize: "0.9em",
+  ".cm-content": {
+    maxWidth: "48rem",
+    margin: "0 auto",
   },
 
   // Inline code
