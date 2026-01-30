@@ -3,27 +3,12 @@ import { Extension, Facet, Range, RangeSetBuilder } from "@codemirror/state";
 import { syntaxHighlighting, syntaxTree } from "@codemirror/language";
 import { cursorInRange, selectionOverlapsRange } from "./utils";
 import { highlightStyle, marklyBaseTheme } from "./theme";
-
-/**
- * Node types from @lezer/markdown that we handle
- */
-const HEADING_TYPES = ["ATXHeading1", "ATXHeading2", "ATXHeading3", "ATXHeading4", "ATXHeading5", "ATXHeading6"];
+import { DecorationContext, MarklyPlugin } from "./plugin";
 
 /**
  * Mark decorations for inline styling
  */
 const markDecorations = {
-  // Headers
-  "heading-1": Decoration.mark({ class: "cm-markly-h1" }),
-  "heading-2": Decoration.mark({ class: "cm-markly-h2" }),
-  "heading-3": Decoration.mark({ class: "cm-markly-h3" }),
-  "heading-4": Decoration.mark({ class: "cm-markly-h4" }),
-  "heading-5": Decoration.mark({ class: "cm-markly-h5" }),
-  "heading-6": Decoration.mark({ class: "cm-markly-h6" }),
-
-  // Heading markers (# symbols)
-  "heading-mark": Decoration.mark({ class: "cm-markly-heading-mark" }),
-
   // Inline styles
   emphasis: Decoration.mark({ class: "cm-markly-emphasis" }),
   strong: Decoration.mark({ class: "cm-markly-strong" }),
@@ -142,28 +127,6 @@ function buildDecorations(view: EditorView, plugins: MarklyPlugin[] = []): Decor
 
       // Skip if cursor is in this range (show raw markdown)
       const cursorInNode = selectionOverlapsRange(view, from, to);
-
-      // Handle headings
-      if (HEADING_TYPES.includes(name)) {
-        const level = parseInt(name.slice(-1), 10);
-        const headingClass = `heading-${level}` as keyof typeof markDecorations;
-        const lineClass = `heading-${level}` as keyof typeof lineDecorations;
-
-        // Add line decoration
-        const line = view.state.doc.lineAt(from);
-        decorations.push(lineDecorations[lineClass].range(line.from));
-
-        // Add mark decoration for the content
-        decorations.push(markDecorations[headingClass].range(from, to));
-
-        // Find and style the heading marker (#)
-        if (!cursorInNode) {
-          const headingMark = node.node.getChild("HeaderMark");
-          if (headingMark) {
-            decorations.push(markDecorations["heading-mark"].range(headingMark.from, headingMark.to));
-          }
-        }
-      }
 
       // Handle emphasis (italic)
       if (name === "Emphasis") {

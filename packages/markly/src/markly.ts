@@ -7,6 +7,7 @@ import { createMarklyViewExtension } from "./view-plugin";
 import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
 import { indentOnInput } from "@codemirror/language";
 import { languages } from "@codemirror/language-data";
+import { defaultPlugins } from "./plugins/plugins";
 
 /**
  * Configuration options for the Markly editor
@@ -85,7 +86,7 @@ export function markly(config: MarklyConfig = {}): Extension[] {
     lineWrapping: configLineWrapping = true,
   } = config;
 
-  const allPlugins = [...plugins];
+  const allPlugins = [...defaultPlugins, ...plugins];
 
   // Collect all extensions from plugins
   const pluginExtensions: Extension[] = [];
