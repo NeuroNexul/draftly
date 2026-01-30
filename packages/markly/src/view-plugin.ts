@@ -10,10 +10,7 @@ import { DecorationContext, MarklyPlugin } from "./plugin";
  */
 const markDecorations = {
   // Inline styles
-  emphasis: Decoration.mark({ class: "cm-markly-emphasis" }),
-  strong: Decoration.mark({ class: "cm-markly-strong" }),
   "inline-code": Decoration.mark({ class: "cm-markly-inline-code" }),
-  strikethrough: Decoration.mark({ class: "cm-markly-strikethrough" }),
 
   // Links and images
   link: Decoration.mark({ class: "cm-markly-link" }),
@@ -45,12 +42,6 @@ const markDecorations = {
  * Line decorations for block-level elements
  */
 const lineDecorations = {
-  "heading-1": Decoration.line({ class: "cm-markly-line-h1" }),
-  "heading-2": Decoration.line({ class: "cm-markly-line-h2" }),
-  "heading-3": Decoration.line({ class: "cm-markly-line-h3" }),
-  "heading-4": Decoration.line({ class: "cm-markly-line-h4" }),
-  "heading-5": Decoration.line({ class: "cm-markly-line-h5" }),
-  "heading-6": Decoration.line({ class: "cm-markly-line-h6" }),
   blockquote: Decoration.line({ class: "cm-markly-line-blockquote" }),
   "code-block": Decoration.line({ class: "cm-markly-line-code" }),
   hr: Decoration.line({ class: "cm-markly-line-hr" }),
@@ -128,32 +119,6 @@ function buildDecorations(view: EditorView, plugins: MarklyPlugin[] = []): Decor
       // Skip if cursor is in this range (show raw markdown)
       const cursorInNode = selectionOverlapsRange(view, from, to);
 
-      // Handle emphasis (italic)
-      if (name === "Emphasis") {
-        decorations.push(markDecorations.emphasis.range(from, to));
-
-        // Style the markers (* or _)
-        if (!cursorInNode) {
-          const marks = node.node.getChildren("EmphasisMark");
-          for (const mark of marks) {
-            decorations.push(markDecorations["emphasis-mark"].range(mark.from, mark.to));
-          }
-        }
-      }
-
-      // Handle strong emphasis (bold)
-      if (name === "StrongEmphasis") {
-        decorations.push(markDecorations.strong.range(from, to));
-
-        // Style the markers (** or __)
-        if (!cursorInNode) {
-          const marks = node.node.getChildren("EmphasisMark");
-          for (const mark of marks) {
-            decorations.push(markDecorations["emphasis-mark"].range(mark.from, mark.to));
-          }
-        }
-      }
-
       // Handle inline code
       if (name === "InlineCode") {
         decorations.push(markDecorations["inline-code"].range(from, to));
@@ -163,19 +128,6 @@ function buildDecorations(view: EditorView, plugins: MarklyPlugin[] = []): Decor
           const marks = node.node.getChildren("CodeMark");
           for (const mark of marks) {
             decorations.push(markDecorations["code-mark"].range(mark.from, mark.to));
-          }
-        }
-      }
-
-      // Handle strikethrough
-      if (name === "Strikethrough") {
-        decorations.push(markDecorations.strikethrough.range(from, to));
-
-        // Style the ~~ markers
-        if (!cursorInNode) {
-          const marks = node.node.getChildren("StrikethroughMark");
-          for (const mark of marks) {
-            decorations.push(markDecorations["emphasis-mark"].range(mark.from, mark.to));
           }
         }
       }
