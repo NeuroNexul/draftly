@@ -10,10 +10,7 @@ import { Content } from "./types";
 import { Button } from "@workspace/ui/components/button";
 import { Loader2 } from "lucide-react";
 
-import CodeMirror, {
-  Extension,
-  ReactCodeMirrorRef,
-} from "@uiw/react-codemirror";
+import CodeMirror, { Extension, ReactCodeMirrorRef } from "@uiw/react-codemirror";
 import { githubDark } from "@uiw/codemirror-theme-github";
 import markly from "markly";
 
@@ -86,8 +83,7 @@ export default function Page() {
   useEffect(() => {
     return () => {
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-      if (savedIndicatorTimeoutRef.current)
-        clearTimeout(savedIndicatorTimeoutRef.current);
+      if (savedIndicatorTimeoutRef.current) clearTimeout(savedIndicatorTimeoutRef.current);
     };
   }, []);
 
@@ -104,11 +100,7 @@ export default function Page() {
 
   function handleContentChange(id: string, content: string) {
     setContents((c) => {
-      const updated = c.map((currentContent) =>
-        currentContent.id === id
-          ? { ...currentContent, content }
-          : currentContent,
-      );
+      const updated = c.map((currentContent) => (currentContent.id === id ? { ...currentContent, content } : currentContent));
       saveToStorage(updated, currentContent);
       return updated;
     });
@@ -179,9 +171,7 @@ export default function Page() {
         {/* Mobile Backdrop */}
         <div
           className={`fixed inset-0 bg-black/50 z-30 xl:hidden transition-opacity duration-300 ${
-            sidebarOpen || devbarOpen
-              ? "opacity-100"
-              : "opacity-0 pointer-events-none"
+            sidebarOpen || devbarOpen ? "opacity-100" : "opacity-0 pointer-events-none"
           }`}
           onClick={() => {
             setSidebarOpen(false);
@@ -200,12 +190,7 @@ export default function Page() {
             },
           )}
         >
-          <Sidebar
-            contents={contents}
-            currentContent={currentContent}
-            setCurrentContent={handleSetCurrentContent}
-            addNewContent={addNewContent}
-          />
+          <Sidebar contents={contents} currentContent={currentContent} setCurrentContent={handleSetCurrentContent} addNewContent={addNewContent} />
         </div>
 
         {/* Editor */}
@@ -219,23 +204,14 @@ export default function Page() {
               height="100%"
               width="100%"
               value={contents[currentContent]?.content}
-              onChange={(value) =>
-                handleContentChange(contents[currentContent]!.id, value)
-              }
+              onChange={(value) => handleContentChange(contents[currentContent]!.id, value)}
               theme={githubDark}
               extensions={[...defaultExtensions]}
             />
           ) : (
             <div className="w-full h-full flex flex-col items-center justify-center">
-              <span className="text-muted-foreground font-mono whitespace-nowrap">
-                No Content Selected
-              </span>
-              <Button
-                className="mt-4"
-                onClick={() =>
-                  addNewContent(window.prompt("Enter Content Title") || "")
-                }
-              >
+              <span className="text-muted-foreground font-mono whitespace-nowrap">No Content Selected</span>
+              <Button className="mt-4" onClick={() => addNewContent(window.prompt("Enter Content Title") || "")}>
                 Create New
               </Button>
             </div>
