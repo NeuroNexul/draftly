@@ -1,26 +1,10 @@
 import { Extension, Prec } from "@codemirror/state";
-import {
-  drawSelection,
-  EditorView,
-  highlightActiveLine,
-  KeyBinding,
-  keymap,
-  rectangularSelection,
-} from "@codemirror/view";
-import {
-  markdown,
-  markdownKeymap,
-  markdownLanguage,
-} from "@codemirror/lang-markdown";
+import { drawSelection, EditorView, highlightActiveLine, KeyBinding, keymap, rectangularSelection } from "@codemirror/view";
+import { markdown, markdownKeymap, markdownLanguage } from "@codemirror/lang-markdown";
 import type { MarkdownConfig } from "@lezer/markdown";
-import { MarklyPlugin, PluginContext } from "./types";
+import { MarklyPlugin, PluginContext } from "./plugin";
 import { createMarklyViewExtension } from "./view-plugin";
-import {
-  defaultKeymap,
-  history,
-  historyKeymap,
-  indentWithTab,
-} from "@codemirror/commands";
+import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
 import { indentOnInput } from "@codemirror/language";
 import { languages } from "@codemirror/language-data";
 
