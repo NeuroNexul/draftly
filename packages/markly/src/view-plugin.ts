@@ -30,10 +30,6 @@ const markDecorations = {
   blockquote: Decoration.mark({ class: "cm-markly-blockquote" }),
   "quote-mark": Decoration.mark({ class: "cm-markly-quote-mark" }),
 
-  // Lists
-  "list-mark": Decoration.mark({ class: "cm-markly-list-mark" }),
-  "task-marker": Decoration.mark({ class: "cm-markly-task-marker" }),
-
   // Horizontal rule
   hr: Decoration.mark({ class: "cm-markly-hr" }),
 };
@@ -53,52 +49,6 @@ const lineDecorations = {
 export const marklyPluginsFacet = Facet.define<MarklyPlugin[], MarklyPlugin[]>({
   combine: (values) => values.flat(),
 });
-
-/**
- * Task checkbox widget
- */
-class TaskCheckboxWidget extends WidgetType {
-  constructor(readonly checked: boolean) {
-    super();
-  }
-
-  eq(other: TaskCheckboxWidget): boolean {
-    return other.checked === this.checked;
-  }
-
-  toDOM(view: EditorView): HTMLElement {
-    const wrap = document.createElement("span");
-    wrap.className = `cm-markly-task-checkbox ${this.checked ? "checked" : ""}`;
-    wrap.setAttribute("aria-hidden", "true");
-
-    const checkbox = document.createElement("input");
-    checkbox.type = "checkbox";
-    checkbox.checked = this.checked;
-    checkbox.tabIndex = -1;
-
-    checkbox.addEventListener("mousedown", (e) => {
-      e.preventDefault();
-      const pos = view.posAtDOM(wrap);
-      // Find the task marker in the document and toggle it
-      const line = view.state.doc.lineAt(pos);
-      const match = line.text.match(/^(\s*[-*+]\s*)\[([ xX])\]/);
-      if (match) {
-        const markerStart = line.from + match[1]!.length + 1;
-        const newChar = this.checked ? " " : "x";
-        view.dispatch({
-          changes: { from: markerStart, to: markerStart + 1, insert: newChar },
-        });
-      }
-    });
-
-    wrap.appendChild(checkbox);
-    return wrap;
-  }
-
-  ignoreEvent(): boolean {
-    return false;
-  }
-}
 
 /**
  * Build decorations for the visible viewport
@@ -197,30 +147,6 @@ function buildDecorations(view: EditorView, plugins: MarklyPlugin[] = []): Decor
         const line = view.state.doc.lineAt(from);
         decorations.push(lineDecorations.hr.range(line.from));
         decorations.push(markDecorations.hr.range(from, to));
-      }
-
-      // Handle list markers
-      if (name === "ListMark") {
-        decorations.push(markDecorations["list-mark"].range(from, to));
-      }
-
-      // Handle task lists
-      if (name === "TaskMarker") {
-        const text = view.state.sliceDoc(from, to);
-        const isChecked = text.includes("x") || text.includes("X");
-
-        decorations.push(markDecorations["task-marker"].range(from, to));
-
-        // Add checkbox widget if cursor is not in the task item
-        const taskLine = view.state.doc.lineAt(from);
-        if (!cursorInRange(view, taskLine.from, taskLine.to)) {
-          decorations.push(
-            Decoration.widget({
-              widget: new TaskCheckboxWidget(isChecked),
-              side: -1,
-            }).range(from),
-          );
-        }
       }
     },
   });

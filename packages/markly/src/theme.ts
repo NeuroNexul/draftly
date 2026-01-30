@@ -92,27 +92,4 @@ export const marklyBaseTheme = EditorView.baseTheme({
   ".cm-markly-hr": {
     opacity: "0.4",
   },
-
-  // List marks
-  ".cm-markly-list-mark": {
-    color: "#57606a",
-    fontWeight: "500",
-  },
-
-  // Task checkbox
-  ".cm-markly-task-checkbox": {
-    display: "inline-flex",
-    alignItems: "center",
-    paddingRight: "0.25em",
-    verticalAlign: "middle",
-  },
-  ".cm-markly-task-checkbox input": {
-    width: "14px",
-    height: "14px",
-    margin: "0",
-    cursor: "pointer",
-  },
-  ".cm-markly-task-marker": {
-    opacity: "0.5",
-  },
 });
