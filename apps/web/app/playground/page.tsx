@@ -11,8 +11,9 @@ import { Button } from "@workspace/ui/components/button";
 import { Loader2 } from "lucide-react";
 
 import CodeMirror, { Extension, ReactCodeMirrorRef } from "@uiw/react-codemirror";
-import { githubDark } from "@uiw/codemirror-theme-github";
+import { githubDark, githubLight } from "@uiw/codemirror-theme-github";
 import markly from "markly";
+import { useTheme } from "next-themes";
 
 const STORAGE_KEY = "markly-playground-contents";
 const STORAGE_CURRENT_KEY = "markly-playground-current";
@@ -21,6 +22,7 @@ const DEBOUNCE_MS = 500;
 export type SaveStatus = "idle" | "saving" | "saved";
 
 export default function Page() {
+  const { theme } = useTheme();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [devbarOpen, setDevbarOpen] = useState(true);
   const [contents, setContents] = useState<Content[]>([]);
@@ -199,14 +201,21 @@ export default function Page() {
             <CodeMirror
               id={"markly-editor"}
               ref={editor}
-              autoFocus
+              autoFocus={false}
               className={"h-full w-full"}
               height="100%"
               width="100%"
               value={contents[currentContent]?.content}
               onChange={(value) => handleContentChange(contents[currentContent]!.id, value)}
-              theme={githubDark}
+              theme={theme?.includes("dark") ? githubDark : githubLight}
               extensions={[...defaultExtensions]}
+              basicSetup={{
+                lineNumbers: showCode,
+                foldGutter: showCode,
+                highlightActiveLine: showCode,
+                highlightActiveLineGutter: showCode,
+                highlightSelectionMatches: showCode,
+              }}
             />
           ) : (
             <div className="w-full h-full flex flex-col items-center justify-center">

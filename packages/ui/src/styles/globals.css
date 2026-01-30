@@ -5,9 +5,10 @@
 
 @import "tw-animate-css";
 
-@custom-variant dark (&:is(.dark *));
+@custom-variant dark (&:is(.dark *, .default-dark *));
 
-:root {
+:root,
+.default-light {
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -43,7 +44,8 @@
   --sidebar-ring: hsl(217.2 91.2% 59.8%);
 }
 
-.dark {
+.dark,
+.default-dark {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.145 0 0);

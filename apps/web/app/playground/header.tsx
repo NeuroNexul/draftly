@@ -2,6 +2,7 @@ import { Button } from "@workspace/ui/components/button";
 import { Check, Loader2, PanelLeftCloseIcon, PanelLeftOpenIcon } from "lucide-react";
 import React, { Dispatch, SetStateAction } from "react";
 import type { SaveStatus } from "./page";
+import { ThemeSwitcher } from "@/components/providers";
 
 type Props = {
   sidebarOpen: boolean;
@@ -22,7 +23,7 @@ export default function Header({ sidebarOpen, setSidebarOpen, devbarOpen, setDev
         </Button>
         <h2 className="text-xl font-mono">Markly</h2>
       </div>
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2">
         {saveStatus !== "idle" && (
           <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
             {saveStatus === "saving" ? (
@@ -38,6 +39,7 @@ export default function Header({ sidebarOpen, setSidebarOpen, devbarOpen, setDev
             )}
           </div>
         )}
+        <ThemeSwitcher />
         <Button variant="outline" size="sm" onClick={() => setShowCode(!showCode)}>
           Toggle Code
         </Button>
