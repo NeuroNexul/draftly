@@ -196,25 +196,16 @@ const listTheme = EditorView.theme({
     width: "1.1em",
     height: "1.1em",
     appearance: "none",
-    border: "2px solid #a4a4a4",
-    borderRadius: "3px",
+    border: "1px solid",
+    borderRadius: "0.25em",
     backgroundColor: "transparent",
     position: "relative",
   },
 
-  ".cm-markly-task-checkbox.checked input": {
-    backgroundColor: "transparent",
-  },
-
   ".cm-markly-task-checkbox.checked input::after": {
-    content: '""',
+    content: '"✓"',
     position: "absolute",
-    left: "5px",
-    top: "3px",
-    width: "4px",
-    height: "8px",
-    border: "solid #7ec153",
-    borderWidth: "0 2px 2px 0",
-    transform: "rotate(45deg)",
+    left: "1px",
+    top: "-3px",
   },
 });
