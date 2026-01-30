@@ -83,7 +83,7 @@ export class HeadingPlugin extends DecorationPlugin {
         decorations.push(headingLineDecorations[lineClass].range(line.from));
 
         // Add mark decoration for the heading content
-        decorations.push(headingMarkDecorations[headingClass].range(from, to));
+        decorations.push(headingMarkDecorations[headingClass].range(from, to + 1));
 
         // Find and style the heading marker (#)
         // Only hide when cursor is not in the heading
@@ -91,7 +91,7 @@ export class HeadingPlugin extends DecorationPlugin {
         if (!cursorInNode) {
           const headingMark = node.node.getChild("HeaderMark");
           if (headingMark) {
-            decorations.push(headingMarkDecorations["heading-mark"].range(headingMark.from, headingMark.to));
+            decorations.push(headingMarkDecorations["heading-mark"].range(headingMark.from, headingMark.to + 1));
           }
         }
       },
