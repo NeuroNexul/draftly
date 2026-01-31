@@ -2,32 +2,32 @@ import { Extension, Prec } from "@codemirror/state";
 import { drawSelection, EditorView, highlightActiveLine, KeyBinding, keymap, rectangularSelection } from "@codemirror/view";
 import { markdown, markdownKeymap, markdownLanguage } from "@codemirror/lang-markdown";
 import type { MarkdownConfig } from "@lezer/markdown";
-import { MarklyPlugin, PluginContext } from "./plugin";
-import { createMarklyViewExtension } from "./view-plugin";
+import { DraftlyPlugin, PluginContext } from "./plugin";
+import { createDraftlyViewExtension } from "./view-plugin";
 import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
 import { indentOnInput } from "@codemirror/language";
 import { languages } from "@codemirror/language-data";
 import { defaultPlugins } from "./plugins/plugins";
 
 /**
- * MarklyNode: represents a node in the markdown tree
+ * DraftlyNode: represents a node in the markdown tree
  *
  * Useful for debugging and development
  */
-export type MarklyNode = {
+export type DraftlyNode = {
   from: number;
   to: number;
   name: string;
-  children: MarklyNode[];
+  children: DraftlyNode[];
   isSelected: boolean;
 };
 
 /**
- * Configuration options for the Markly editor
+ * Configuration options for the draftly editor
  */
-export interface MarklyConfig {
+export interface DraftlyConfig {
   /** Plugins to load */
-  plugins?: MarklyPlugin[];
+  plugins?: DraftlyPlugin[];
 
   /** Additional markdown extensions for the parser */
   markdown?: MarkdownConfig[];
@@ -63,11 +63,11 @@ export interface MarklyConfig {
   lineWrapping?: boolean;
 
   /** Callback to receive the nodes on every update */
-  onNodesChange?: (nodes: MarklyNode[]) => void;
+  onNodesChange?: (nodes: DraftlyNode[]) => void;
 }
 
 /**
- * Creates a Markly editor extension bundle for CodeMirror 6
+ * Creates a draftly editor extension bundle for CodeMirror 6
  *
  * @param config - Configuration options for the editor
  * @returns CodeMirror Extension that can be added to EditorState
@@ -76,18 +76,18 @@ export interface MarklyConfig {
  * ```ts
  * import { EditorView } from '@codemirror/view';
  * import { EditorState } from '@codemirror/state';
- * import { markly } from 'markly';
+ * import { draftly } from 'draftly';
  *
  * const view = new EditorView({
  *   state: EditorState.create({
- *     doc: '# Hello Markly',
- *     extensions: [markly()]
+ *     doc: '# Hello draftly',
+ *     extensions: [draftly()]
  *   }),
  *   parent: document.getElementById('editor')
  * });
  * ```
  */
-export function markly(config: MarklyConfig = {}): Extension[] {
+export function draftly(config: DraftlyConfig = {}): Extension[] {
   const {
     plugins = [],
     extensions = [],
@@ -161,10 +161,10 @@ export function markly(config: MarklyConfig = {}): Extension[] {
     ...(configRectangularSelection ? [rectangularSelection()] : []),
   ];
 
-  // Markly extensions (pass plugins for decoration support)
-  const marklyExtensions: Extension[] = [];
-  if (!disableViewPlugin) marklyExtensions.push(createMarklyViewExtension(allPlugins, configOnNodesChange));
-  if (!disableViewPlugin || configLineWrapping) marklyExtensions.push(EditorView.lineWrapping);
+  // draftly extensions (pass plugins for decoration support)
+  const draftlyExtensions: Extension[] = [];
+  if (!disableViewPlugin) draftlyExtensions.push(createDraftlyViewExtension(allPlugins, configOnNodesChange));
+  if (!disableViewPlugin || configLineWrapping) draftlyExtensions.push(EditorView.lineWrapping);
 
   // Compose all extensions together
   const composedExtensions: Extension[] = [
@@ -175,8 +175,8 @@ export function markly(config: MarklyConfig = {}): Extension[] {
     // Core CodeMirror extensions
     ...baseExtensions,
 
-    // Markly view plugin for rich rendering
-    ...marklyExtensions,
+    // draftly view plugin for rich rendering
+    ...draftlyExtensions,
 
     // Plugin extensions & keymaps
     ...pluginExtensions,

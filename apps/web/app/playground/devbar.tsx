@@ -1,10 +1,10 @@
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@workspace/ui/components/accordion";
-import { MarklyNode } from "markly";
+import { DraftlyNode } from "draftly";
 import React from "react";
 
 type Props = {
   setShowNodes: (show: boolean) => void;
-  nodes: MarklyNode[];
+  nodes: DraftlyNode[];
 };
 
 export default function Devbar({ setShowNodes, nodes }: Props) {
@@ -30,7 +30,7 @@ export default function Devbar({ setShowNodes, nodes }: Props) {
   );
 }
 
-function NodeViewer({ nodes, depth = 0 }: { nodes: MarklyNode[]; depth?: number }) {
+function NodeViewer({ nodes, depth = 0 }: { nodes: DraftlyNode[]; depth?: number }) {
   return (
     <div className="font-mono text-xs">
       {nodes.map((node, idx) => (

@@ -12,11 +12,11 @@ import { Loader2 } from "lucide-react";
 
 import CodeMirror, { Extension, ReactCodeMirrorRef } from "@uiw/react-codemirror";
 import { githubDark, githubLight } from "@uiw/codemirror-theme-github";
-import markly, { MarklyNode } from "markly";
+import draftly, { DraftlyNode } from "draftly";
 import { useTheme } from "next-themes";
 
-const STORAGE_KEY = "markly-playground-contents";
-const STORAGE_CURRENT_KEY = "markly-playground-current";
+const STORAGE_KEY = "draftly-playground-contents";
+const STORAGE_CURRENT_KEY = "draftly-playground-current";
 const DEBOUNCE_MS = 500;
 
 export type SaveStatus = "idle" | "saving" | "saved";
@@ -31,7 +31,7 @@ export default function Page() {
 
   const [showCode, setShowCode] = useState(false);
   const [showNodes, setShowNodes] = useState(false);
-  const [nodes, setNodes] = useState<MarklyNode[]>([]);
+  const [nodes, setNodes] = useState<DraftlyNode[]>([]);
 
   const [isLoading, setIsLoading] = useState(true);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
@@ -134,7 +134,7 @@ export default function Page() {
 
   const defaultExtensions = useMemo<Extension[]>(
     () =>
-      markly({
+      draftly({
         plugins: [],
         markdown: [],
         extensions: [],
@@ -207,8 +207,8 @@ export default function Page() {
         <div className="flex-1 h-full border-r flex items-center justify-center">
           {currentContent !== -1 ? (
             <CodeMirror
-              key={`markly-editor-${showCode}`}
-              id={"markly-editor"}
+              key={`draftly-editor-${showCode}`}
+              id={"draftly-editor"}
               ref={editor}
               autoFocus={false}
               className={"h-full w-full"}

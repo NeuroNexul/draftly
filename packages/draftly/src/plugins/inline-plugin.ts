@@ -18,13 +18,13 @@ const INLINE_TYPES = {
  * Mark decorations for inline content
  */
 const inlineMarkDecorations = {
-  emphasis: Decoration.mark({ class: "cm-markly-emphasis" }),
-  strong: Decoration.mark({ class: "cm-markly-strong" }),
-  strikethrough: Decoration.mark({ class: "cm-markly-strikethrough" }),
-  subscript: Decoration.mark({ class: "cm-markly-subscript" }),
-  superscript: Decoration.mark({ class: "cm-markly-superscript" }),
+  emphasis: Decoration.mark({ class: "cm-draftly-emphasis" }),
+  strong: Decoration.mark({ class: "cm-draftly-strong" }),
+  strikethrough: Decoration.mark({ class: "cm-draftly-strikethrough" }),
+  subscript: Decoration.mark({ class: "cm-draftly-subscript" }),
+  superscript: Decoration.mark({ class: "cm-draftly-superscript" }),
   // Markers (* _ ~~ ^ ~)
-  "inline-mark": Decoration.mark({ class: "cm-markly-inline-mark" }),
+  "inline-mark": Decoration.mark({ class: "cm-draftly-inline-mark" }),
 };
 
 /**
@@ -118,35 +118,35 @@ export class InlinePlugin extends DecorationPlugin {
  */
 const inlineTheme = EditorView.theme({
   // Emphasis (italic)
-  ".cm-markly-emphasis": {
+  ".cm-draftly-emphasis": {
     fontStyle: "italic",
   },
 
   // Strong (bold)
-  ".cm-markly-strong": {
+  ".cm-draftly-strong": {
     fontWeight: "bold",
   },
 
   // Strikethrough
-  ".cm-markly-strikethrough": {
+  ".cm-draftly-strikethrough": {
     textDecoration: "line-through",
     opacity: "0.7",
   },
 
   // Subscript
-  ".cm-markly-subscript": {
+  ".cm-draftly-subscript": {
     fontSize: "0.75em",
     verticalAlign: "sub",
   },
 
   // Superscript
-  ".cm-markly-superscript": {
+  ".cm-draftly-superscript": {
     fontSize: "0.75em",
     verticalAlign: "super",
   },
 
   // Inline markers (* _ ~~ ^ ~) - hidden when not focused
-  ".cm-markly-inline-mark": {
+  ".cm-draftly-inline-mark": {
     display: "none",
   },
 });

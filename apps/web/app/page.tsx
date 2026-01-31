@@ -4,7 +4,7 @@ import Link from "next/link";
 export default function Page() {
   return (
     <div className="min-h-svh h-svh flex flex-col items-center justify-center">
-      <h1 className="text-4xl">Markly</h1>
+      <h1 className="text-4xl">draftly</h1>
       <Button asChild>
         <Link href="/playground">Playground</Link>
       </Button>

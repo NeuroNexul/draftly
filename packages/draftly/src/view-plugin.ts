@@ -2,59 +2,59 @@ import { Decoration, DecorationSet, EditorView, ViewPlugin, ViewUpdate } from "@
 import { Extension, Facet, Range, RangeSetBuilder } from "@codemirror/state";
 import { syntaxHighlighting, syntaxTree } from "@codemirror/language";
 import { cursorInRange, selectionOverlapsRange } from "./utils";
-import { highlightStyle, marklyBaseTheme } from "./theme";
-import { DecorationContext, MarklyPlugin } from "./plugin";
-import { MarklyNode } from "./markly";
+import { highlightStyle, draftlyBaseTheme } from "./theme";
+import { DecorationContext, DraftlyPlugin } from "./plugin";
+import { DraftlyNode } from "./draftly";
 
 /**
  * Mark decorations for inline styling
  */
 const markDecorations = {
   // Inline styles
-  "inline-code": Decoration.mark({ class: "cm-markly-inline-code" }),
+  "inline-code": Decoration.mark({ class: "cm-draftly-inline-code" }),
 
   // Links and images
-  link: Decoration.mark({ class: "cm-markly-link" }),
-  "link-text": Decoration.mark({ class: "cm-markly-link-text" }),
-  url: Decoration.mark({ class: "cm-markly-url" }),
-  image: Decoration.mark({ class: "cm-markly-image" }),
+  link: Decoration.mark({ class: "cm-draftly-link" }),
+  "link-text": Decoration.mark({ class: "cm-draftly-link-text" }),
+  url: Decoration.mark({ class: "cm-draftly-url" }),
+  image: Decoration.mark({ class: "cm-draftly-image" }),
 
   // Emphasis markers (* _ ~~ `)
-  "emphasis-mark": Decoration.mark({ class: "cm-markly-emphasis-mark" }),
+  "emphasis-mark": Decoration.mark({ class: "cm-draftly-emphasis-mark" }),
 
   // Code blocks
-  "fenced-code": Decoration.mark({ class: "cm-markly-fenced-code" }),
-  "code-mark": Decoration.mark({ class: "cm-markly-code-mark" }),
-  "code-info": Decoration.mark({ class: "cm-markly-code-info" }),
+  "fenced-code": Decoration.mark({ class: "cm-draftly-fenced-code" }),
+  "code-mark": Decoration.mark({ class: "cm-draftly-code-mark" }),
+  "code-info": Decoration.mark({ class: "cm-draftly-code-info" }),
 
   // Blockquote
-  blockquote: Decoration.mark({ class: "cm-markly-blockquote" }),
-  "quote-mark": Decoration.mark({ class: "cm-markly-quote-mark" }),
+  blockquote: Decoration.mark({ class: "cm-draftly-blockquote" }),
+  "quote-mark": Decoration.mark({ class: "cm-draftly-quote-mark" }),
 
   // Horizontal rule
-  hr: Decoration.mark({ class: "cm-markly-hr" }),
+  hr: Decoration.mark({ class: "cm-draftly-hr" }),
 };
 
 /**
  * Line decorations for block-level elements
  */
 const lineDecorations = {
-  blockquote: Decoration.line({ class: "cm-markly-line-blockquote" }),
-  "code-block": Decoration.line({ class: "cm-markly-line-code" }),
-  hr: Decoration.line({ class: "cm-markly-line-hr" }),
+  blockquote: Decoration.line({ class: "cm-draftly-line-blockquote" }),
+  "code-block": Decoration.line({ class: "cm-draftly-line-code" }),
+  hr: Decoration.line({ class: "cm-draftly-line-hr" }),
 };
 
 /**
  * Facet to register plugins with the view plugin
  */
-export const marklyPluginsFacet = Facet.define<MarklyPlugin[], MarklyPlugin[]>({
+export const DraftlyPluginsFacet = Facet.define<DraftlyPlugin[], DraftlyPlugin[]>({
   combine: (values) => values.flat(),
 });
 
 /**
  * Facet to register the onNodesChange callback
  */
-export const marklyOnNodesChangeFacet = Facet.define<((nodes: MarklyNode[]) => void) | undefined, ((nodes: MarklyNode[]) => void) | undefined>({
+export const draftlyOnNodesChangeFacet = Facet.define<((nodes: DraftlyNode[]) => void) | undefined, ((nodes: DraftlyNode[]) => void) | undefined>({
   combine: (values) => values.find((v) => v !== undefined),
 });
 
@@ -63,7 +63,7 @@ export const marklyOnNodesChangeFacet = Facet.define<((nodes: MarklyNode[]) => v
  * @param view - The EditorView instance
  * @param plugins - Optional array of plugins to invoke for decorations
  */
-function buildDecorations(view: EditorView, plugins: MarklyPlugin[] = []): DecorationSet {
+function buildDecorations(view: EditorView, plugins: DraftlyPlugin[] = []): DecorationSet {
   const builder = new RangeSetBuilder<Decoration>();
   const decorations: Range<Decoration>[] = [];
 
@@ -188,17 +188,17 @@ function buildDecorations(view: EditorView, plugins: MarklyPlugin[] = []): Decor
 }
 
 /**
- * Markly View Plugin
+ * draftly View Plugin
  * Handles rich markdown rendering with decorations
  */
-class MarklyViewPluginClass {
+class draftlyViewPluginClass {
   decorations: DecorationSet;
-  private plugins: MarklyPlugin[];
-  private onNodesChange?: (nodes: MarklyNode[]) => void;
+  private plugins: DraftlyPlugin[];
+  private onNodesChange?: (nodes: DraftlyNode[]) => void;
 
   constructor(view: EditorView) {
-    this.plugins = view.state.facet(marklyPluginsFacet);
-    this.onNodesChange = view.state.facet(marklyOnNodesChangeFacet);
+    this.plugins = view.state.facet(DraftlyPluginsFacet);
+    this.onNodesChange = view.state.facet(draftlyOnNodesChangeFacet);
     this.decorations = buildDecorations(view, this.plugins);
 
     // Notify plugins that view is ready
@@ -214,8 +214,8 @@ class MarklyViewPluginClass {
 
   update(update: ViewUpdate) {
     // Update plugins list if facet changed
-    this.plugins = update.view.state.facet(marklyPluginsFacet);
-    this.onNodesChange = update.view.state.facet(marklyOnNodesChangeFacet);
+    this.plugins = update.view.state.facet(DraftlyPluginsFacet);
+    this.onNodesChange = update.view.state.facet(draftlyOnNodesChangeFacet);
 
     // Notify plugins of the update
     for (const plugin of this.plugins) {
@@ -236,14 +236,14 @@ class MarklyViewPluginClass {
     }
   }
 
-  private buildNodes(view: EditorView): MarklyNode[] {
+  private buildNodes(view: EditorView): DraftlyNode[] {
     const tree = syntaxTree(view.state);
-    const roots: MarklyNode[] = [];
-    const stack: MarklyNode[] = [];
+    const roots: DraftlyNode[] = [];
+    const stack: DraftlyNode[] = [];
 
     tree.iterate({
       enter: (nodeRef) => {
-        const node: MarklyNode = {
+        const node: DraftlyNode = {
           from: nodeRef.from,
           to: nodeRef.to,
           name: nodeRef.name,
@@ -269,24 +269,24 @@ class MarklyViewPluginClass {
 }
 
 /**
- * The main Markly ViewPlugin extension
+ * The main draftly ViewPlugin extension
  */
-export const marklyViewPlugin = ViewPlugin.fromClass(MarklyViewPluginClass, {
+export const draftlyViewPlugin = ViewPlugin.fromClass(draftlyViewPluginClass, {
   decorations: (v) => v.decorations,
   provide: () => [syntaxHighlighting(highlightStyle)],
 });
 
 /**
- * Extension to add the cm-markly-enabled class to the editor
+ * Extension to add the cm-draftly-enabled class to the editor
  */
-const marklyEditorClass = EditorView.editorAttributes.of({ class: "cm-markly-enabled" });
+const draftlyEditorClass = EditorView.editorAttributes.of({ class: "cm-draftly-enabled" });
 
 /**
- * Create Markly view extension bundle with plugin support
- * @param plugins - Optional array of MarklyPlugin instances
+ * Create draftly view extension bundle with plugin support
+ * @param plugins - Optional array of DraftlyPlugin instances
  * @param onNodesChange - Optional callback to receive nodes on every update
  * @returns Extension array including view plugin, theme, and plugin facet
  */
-export function createMarklyViewExtension(plugins: MarklyPlugin[] = [], onNodesChange?: (nodes: MarklyNode[]) => void): Extension[] {
-  return [marklyPluginsFacet.of(plugins), marklyOnNodesChangeFacet.of(onNodesChange), marklyViewPlugin, marklyBaseTheme, marklyEditorClass];
+export function createDraftlyViewExtension(plugins: DraftlyPlugin[] = [], onNodesChange?: (nodes: DraftlyNode[]) => void): Extension[] {
+  return [DraftlyPluginsFacet.of(plugins), draftlyOnNodesChangeFacet.of(onNodesChange), draftlyViewPlugin, draftlyBaseTheme, draftlyEditorClass];
 }

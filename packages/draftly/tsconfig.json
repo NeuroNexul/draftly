@@ -5,7 +5,7 @@
     "module": "esnext",
     "moduleResolution": "bundler",
     "paths": {
-      "@workspace/markly/*": ["./src/*"]
+      "@workspace/draftly/*": ["./src/*"]
     }
   },
   "include": ["."],

@@ -74,7 +74,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
       attribute="class"
       defaultTheme="system"
       enableSystem
-      storageKey="markly-theme"
+      storageKey="draftly-theme"
       disableTransitionOnChange
       enableColorScheme
       themes={themeValues}

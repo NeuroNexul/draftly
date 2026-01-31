@@ -8,16 +8,16 @@ import DOMPurify from "dompurify";
  * Mark decorations for HTML content
  */
 const htmlMarkDecorations = {
-  "html-tag": Decoration.mark({ class: "cm-markly-html-tag" }),
-  "html-comment": Decoration.mark({ class: "cm-markly-html-comment" }),
+  "html-tag": Decoration.mark({ class: "cm-draftly-html-tag" }),
+  "html-comment": Decoration.mark({ class: "cm-draftly-html-comment" }),
 };
 
 /**
  * Line decorations for HTML blocks (when visible)
  */
 const htmlLineDecorations = {
-  "html-block": Decoration.line({ class: "cm-markly-line-html-block" }),
-  "hidden-line": Decoration.line({ class: "cm-markly-hidden-line" }),
+  "html-block": Decoration.line({ class: "cm-draftly-line-html-block" }),
+  "hidden-line": Decoration.line({ class: "cm-draftly-hidden-line" }),
 };
 
 /**
@@ -34,7 +34,7 @@ class HTMLPreviewWidget extends WidgetType {
 
   toDOM() {
     const div = document.createElement("div");
-    div.className = "cm-markly-html-preview";
+    div.className = "cm-draftly-html-preview";
     div.innerHTML = DOMPurify.sanitize(this.html);
     return div;
   }
@@ -58,7 +58,7 @@ class InlineHTMLPreviewWidget extends WidgetType {
 
   toDOM() {
     const span = document.createElement("span");
-    span.className = "cm-markly-inline-html-preview";
+    span.className = "cm-draftly-inline-html-preview";
     span.innerHTML = DOMPurify.sanitize(this.html);
     return span;
   }
@@ -301,13 +301,13 @@ export class HTMLPlugin extends DecorationPlugin {
  * Theme for HTML styling
  */
 const htmlTheme = EditorView.theme({
-  ".cm-markly-html-tag": {
+  ".cm-draftly-html-tag": {
     color: "#6a737d",
     fontFamily: "var(--font-jetbrains-mono, monospace)",
     fontSize: "0.85em",
   },
 
-  ".cm-markly-html-comment": {
+  ".cm-draftly-html-comment": {
     color: "#6a737d",
     fontStyle: "italic",
     fontFamily: "var(--font-jetbrains-mono, monospace)",
@@ -315,15 +315,15 @@ const htmlTheme = EditorView.theme({
     opacity: 0.5,
   },
 
-  ".cm-markly-line-html-block": {
+  ".cm-draftly-line-html-block": {
     backgroundColor: "rgba(0, 0, 0, 0.02)",
   },
 
-  ".cm-markly-hidden-line": {
+  ".cm-draftly-hidden-line": {
     display: "none",
   },
 
-  ".cm-markly-html-preview": {
+  ".cm-draftly-html-preview": {
     display: "inline-block",
     width: "100%",
     verticalAlign: "top",
@@ -331,14 +331,14 @@ const htmlTheme = EditorView.theme({
     whiteSpace: "normal",
     lineHeight: "1.4",
   },
-  ".cm-markly-html-preview > *:first-child": {
+  ".cm-draftly-html-preview > *:first-child": {
     marginTop: "0",
   },
-  ".cm-markly-html-preview > *:last-child": {
+  ".cm-draftly-html-preview > *:last-child": {
     marginBottom: "0",
   },
 
-  ".cm-markly-inline-html-preview": {
+  ".cm-draftly-inline-html-preview": {
     display: "inline",
     whiteSpace: "normal",
   },

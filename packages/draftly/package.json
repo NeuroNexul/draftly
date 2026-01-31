@@ -1,12 +1,12 @@
 {
-  "name": "markly",
+  "name": "draftly",
   "version": "0.0.0",
-  "description": "Core library for Markly",
+  "description": "Core library for draftly",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/neuronexul/markly.git",
-    "directory": "packages/markly"
+    "url": "https://github.com/neuronexul/draftly.git",
+    "directory": "packages/draftly"
   },
   "type": "module",
   "private": true,

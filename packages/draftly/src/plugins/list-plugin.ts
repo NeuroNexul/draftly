@@ -7,9 +7,9 @@ import { DecorationContext, DecorationPlugin } from "../plugin";
  * Mark decorations for list items
  */
 const listMarkDecorations = {
-  "list-mark-ul": Decoration.mark({ class: "cm-markly-list-mark-ul" }),
-  "list-mark-ol": Decoration.mark({ class: "cm-markly-list-mark-ol" }),
-  "task-marker": Decoration.mark({ class: "cm-markly-task-marker" }),
+  "list-mark-ul": Decoration.mark({ class: "cm-draftly-list-mark-ul" }),
+  "list-mark-ol": Decoration.mark({ class: "cm-draftly-list-mark-ol" }),
+  "task-marker": Decoration.mark({ class: "cm-draftly-task-marker" }),
 };
 
 /**
@@ -26,7 +26,7 @@ export class TaskCheckboxWidget extends WidgetType {
 
   toDOM(view: EditorView): HTMLElement {
     const wrap = document.createElement("span");
-    wrap.className = `cm-markly-task-checkbox ${this.checked ? "checked" : ""}`;
+    wrap.className = `cm-draftly-task-checkbox ${this.checked ? "checked" : ""}`;
     wrap.setAttribute("aria-hidden", "true");
 
     const checkbox = document.createElement("input");
@@ -147,15 +147,15 @@ export class ListPlugin extends DecorationPlugin {
  */
 const listTheme = EditorView.theme({
   // Unordered List markers (*, -, +)
-  ".cm-markly-list-mark-ul": {
+  ".cm-draftly-list-mark-ul": {
     position: "relative",
   },
 
-  ".cm-markly-list-mark-ul > span": {
+  ".cm-draftly-list-mark-ul > span": {
     visibility: "hidden",
   },
 
-  ".cm-markly-list-mark-ul::after": {
+  ".cm-draftly-list-mark-ul::after": {
     content: '"•"',
     position: "absolute",
     left: "50%",
@@ -167,20 +167,20 @@ const listTheme = EditorView.theme({
   },
 
   // Ordered List markers (1., 2.)
-  ".cm-markly-list-mark-ol": {
-    color: "var(--markly-highlight, #a4a4a4)",
+  ".cm-draftly-list-mark-ol": {
+    color: "var(--draftly-highlight, #a4a4a4)",
     fontFamily: "monospace",
     marginRight: "2px",
   },
 
   // Task markers text ([ ] or [x]) - visible only when editing
-  ".cm-markly-task-marker": {
-    color: "var(--markly-highlight, #a4a4a4)",
+  ".cm-draftly-task-marker": {
+    color: "var(--draftly-highlight, #a4a4a4)",
     fontFamily: "monospace",
   },
 
   // Task Checkbox Widget
-  ".cm-markly-task-checkbox": {
+  ".cm-draftly-task-checkbox": {
     display: "inline-flex",
     verticalAlign: "middle",
     marginRight: "0.3em",
@@ -190,7 +190,7 @@ const listTheme = EditorView.theme({
     height: "1.2em",
   },
 
-  ".cm-markly-task-checkbox input": {
+  ".cm-draftly-task-checkbox input": {
     cursor: "pointer",
     margin: 0,
     width: "1.1em",
@@ -202,7 +202,7 @@ const listTheme = EditorView.theme({
     position: "relative",
   },
 
-  ".cm-markly-task-checkbox.checked input::after": {
+  ".cm-draftly-task-checkbox.checked input::after": {
     content: '"✓"',
     position: "absolute",
     left: "1px",
