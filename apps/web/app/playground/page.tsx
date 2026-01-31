@@ -207,6 +207,7 @@ export default function Page() {
         <div className="flex-1 h-full border-r flex items-center justify-center">
           {currentContent !== -1 ? (
             <CodeMirror
+              key={`markly-editor-${showCode}`}
               id={"markly-editor"}
               ref={editor}
               autoFocus={false}

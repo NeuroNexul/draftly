@@ -277,11 +277,16 @@ export const marklyViewPlugin = ViewPlugin.fromClass(MarklyViewPluginClass, {
 });
 
 /**
+ * Extension to add the cm-markly-enabled class to the editor
+ */
+const marklyEditorClass = EditorView.editorAttributes.of({ class: "cm-markly-enabled" });
+
+/**
  * Create Markly view extension bundle with plugin support
  * @param plugins - Optional array of MarklyPlugin instances
  * @param onNodesChange - Optional callback to receive nodes on every update
  * @returns Extension array including view plugin, theme, and plugin facet
  */
 export function createMarklyViewExtension(plugins: MarklyPlugin[] = [], onNodesChange?: (nodes: MarklyNode[]) => void): Extension[] {
-  return [marklyPluginsFacet.of(plugins), marklyOnNodesChangeFacet.of(onNodesChange), marklyViewPlugin, marklyBaseTheme];
+  return [marklyPluginsFacet.of(plugins), marklyOnNodesChangeFacet.of(onNodesChange), marklyViewPlugin, marklyBaseTheme, marklyEditorClass];
 }

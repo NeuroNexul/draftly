@@ -5,17 +5,21 @@ export const highlightStyle = HighlightStyle.define([]);
 
 /**
  * Base theme for Markly styling
+ * Note: Layout styles are scoped under .cm-markly-enabled which is added by the view plugin
  */
 export const marklyBaseTheme = EditorView.baseTheme({
-  // Container
-  "&": {
+  // Container styles - only apply when view plugin is enabled
+  "&.cm-markly-enabled": {
     fontSize: "16px",
     lineHeight: "1.6",
   },
 
-  ".cm-content": {
+  "&.cm-markly-enabled .cm-content": {
     maxWidth: "48rem",
     margin: "0 auto",
+    fontFamily: "var(--font-sans, sans-serif)",
+    fontSize: "16px",
+    lineHeight: "1.6",
   },
 
   // Inline code
