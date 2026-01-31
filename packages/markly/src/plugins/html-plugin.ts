@@ -81,11 +81,16 @@ interface HTMLTagInfo {
   isSelfClosing: boolean;
 }
 
+interface InlineHTMLElement {
+  from: number;
+  to: number;
+  content: string;
+}
+
 /**
  * Parse an HTML tag to extract its name and type
  */
 function parseHTMLTag(content: string): { tagName: string; isClosing: boolean; isSelfClosing: boolean } | null {
-  // Match opening, closing, or self-closing tags
   const match = content.match(/^<\s*(\/?)([a-zA-Z][a-zA-Z0-9-]*)[^>]*(\/?)>$/);
   if (!match) return null;
 
@@ -161,45 +166,43 @@ export class HTMLPlugin extends DecorationPlugin {
       },
     });
 
-    // Process inline HTML tags (pair opening/closing)
-    const processedRanges = new Set<string>();
+    // Find complete inline HTML elements (must be on same line)
+    const inlineElements: InlineHTMLElement[] = [];
+    const usedTags = new Set<number>(); // Track used tag indices
 
     for (let i = 0; i < htmlTags.length; i++) {
-      const openTag = htmlTags[i]!;
+      if (usedTags.has(i)) continue;
 
-      // Skip if already processed or is a closing tag
-      if (processedRanges.has(`${openTag.from}-${openTag.to}`) || openTag.isClosing) {
-        continue;
-      }
+      const openTag = htmlTags[i]!;
+      if (openTag.isClosing) continue;
 
       // Handle self-closing tags
       if (openTag.isSelfClosing) {
-        const cursorInRange = ctx.cursorInRange(openTag.from, openTag.to);
-        if (cursorInRange) {
-          decorations.push(htmlMarkDecorations["html-tag"].range(openTag.from, openTag.to));
-        } else {
-          const htmlContent = view.state.sliceDoc(openTag.from, openTag.to);
-          decorations.push(
-            Decoration.replace({
-              widget: new InlineHTMLPreviewWidget(htmlContent),
-            }).range(openTag.from, openTag.to),
-          );
-        }
-        processedRanges.add(`${openTag.from}-${openTag.to}`);
+        inlineElements.push({
+          from: openTag.from,
+          to: openTag.to,
+          content: view.state.sliceDoc(openTag.from, openTag.to),
+        });
+        usedTags.add(i);
         continue;
       }
 
-      // Find matching closing tag
+      // Find matching closing tag (must be on same line)
+      const openLine = view.state.doc.lineAt(openTag.from);
       let depth = 1;
-      let closeTag: HTMLTagInfo | null = null;
+      let closeTagIndex: number | null = null;
 
       for (let j = i + 1; j < htmlTags.length && depth > 0; j++) {
         const tag = htmlTags[j]!;
+
+        // Stop if we've gone past the open tag's line
+        if (tag.from > openLine.to) break;
+
         if (tag.tagName === openTag.tagName) {
           if (tag.isClosing) {
             depth--;
             if (depth === 0) {
-              closeTag = tag;
+              closeTagIndex = j;
             }
           } else if (!tag.isSelfClosing) {
             depth++;
@@ -207,38 +210,58 @@ export class HTMLPlugin extends DecorationPlugin {
         }
       }
 
-      if (closeTag) {
-        // Found a matching pair
-        const rangeFrom = openTag.from;
-        const rangeTo = closeTag.to;
-        const cursorInRange = ctx.cursorInRange(rangeFrom, rangeTo);
+      if (closeTagIndex !== null) {
+        const closeTag = htmlTags[closeTagIndex]!;
+        inlineElements.push({
+          from: openTag.from,
+          to: closeTag.to,
+          content: view.state.sliceDoc(openTag.from, closeTag.to),
+        });
 
-        if (cursorInRange) {
-          // Show source - style the tags
-          decorations.push(htmlMarkDecorations["html-tag"].range(openTag.from, openTag.to));
-          decorations.push(htmlMarkDecorations["html-tag"].range(closeTag.from, closeTag.to));
-        } else {
-          // Render preview
-          const htmlContent = view.state.sliceDoc(rangeFrom, rangeTo);
-          decorations.push(
-            Decoration.replace({
-              widget: new InlineHTMLPreviewWidget(htmlContent),
-            }).range(rangeFrom, rangeTo),
-          );
+        // Mark all tags within this range as used (to handle nesting)
+        for (let k = i; k <= closeTagIndex; k++) {
+          usedTags.add(k);
         }
-
-        processedRanges.add(`${openTag.from}-${openTag.to}`);
-        processedRanges.add(`${closeTag.from}-${closeTag.to}`);
-      } else {
-        // No matching close tag - just style as source
-        decorations.push(htmlMarkDecorations["html-tag"].range(openTag.from, openTag.to));
-        processedRanges.add(`${openTag.from}-${openTag.to}`);
       }
     }
 
-    // Style any remaining unprocessed tags
-    for (const tag of htmlTags) {
-      if (!processedRanges.has(`${tag.from}-${tag.to}`)) {
+    // Sort by position and filter out overlapping elements (keep outermost)
+    inlineElements.sort((a, b) => a.from - b.from);
+    const filteredElements: InlineHTMLElement[] = [];
+    let lastEnd = -1;
+
+    for (const elem of inlineElements) {
+      if (elem.from >= lastEnd) {
+        filteredElements.push(elem);
+        lastEnd = elem.to;
+      }
+    }
+
+    // Apply decorations for inline elements
+    for (const elem of filteredElements) {
+      const cursorInRange = ctx.cursorInRange(elem.from, elem.to);
+
+      if (cursorInRange) {
+        // Show source - find and style the tags within this element
+        for (const tag of htmlTags) {
+          if (tag.from >= elem.from && tag.to <= elem.to) {
+            decorations.push(htmlMarkDecorations["html-tag"].range(tag.from, tag.to));
+          }
+        }
+      } else {
+        // Render preview
+        decorations.push(
+          Decoration.replace({
+            widget: new InlineHTMLPreviewWidget(elem.content),
+          }).range(elem.from, elem.to),
+        );
+      }
+    }
+
+    // Style any remaining unprocessed tags (orphan tags)
+    for (let i = 0; i < htmlTags.length; i++) {
+      if (!usedTags.has(i)) {
+        const tag = htmlTags[i]!;
         decorations.push(htmlMarkDecorations["html-tag"].range(tag.from, tag.to));
       }
     }
@@ -315,7 +338,6 @@ const htmlTheme = EditorView.theme({
     marginBottom: "0",
   },
 
-  // Inline HTML preview
   ".cm-markly-inline-html-preview": {
     display: "inline",
     whiteSpace: "normal",
