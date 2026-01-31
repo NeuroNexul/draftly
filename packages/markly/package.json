@@ -21,6 +21,7 @@
   },
   "devDependencies": {
     "@turbo/gen": "^2.7.6",
+    "@types/dompurify": "^3.2.0",
     "@types/node": "^25.0.10",
     "@workspace/eslint-config": "workspace:*",
     "@workspace/typescript-config": "workspace:*",
@@ -32,6 +33,7 @@
     "@lezer/common": "^1.5.0",
     "@lezer/highlight": "^1.2.3",
     "@lezer/markdown": "^1.6.3",
+    "dompurify": "^3.3.1",
     "zod": "^4.3.6"
   },
   "exports": {
