@@ -133,7 +133,7 @@ export class ListPlugin extends DecorationPlugin {
             decorations.push(
               Decoration.replace({
                 widget: new TaskCheckboxWidget(isChecked),
-              }).range(from, to),
+              }).range(from, to)
             );
           }
         }

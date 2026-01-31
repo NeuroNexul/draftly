@@ -107,7 +107,9 @@ export default function Page() {
 
   function handleContentChange(id: string, content: string) {
     setContents((c) => {
-      const updated = c.map((currentContent) => (currentContent.id === id ? { ...currentContent, content } : currentContent));
+      const updated = c.map((currentContent) =>
+        currentContent.id === id ? { ...currentContent, content } : currentContent
+      );
       saveToStorage(updated, currentContent);
       return updated;
     });
@@ -151,7 +153,7 @@ export default function Page() {
           if (showNodes) setNodes(nodes);
         },
       }),
-    [showCode, showNodes, setNodes],
+    [showCode, showNodes, setNodes]
   );
 
   if (isLoading) {
@@ -197,10 +199,15 @@ export default function Page() {
             {
               "w-64": sidebarOpen,
               "w-0 xl:w-0": !sidebarOpen,
-            },
+            }
           )}
         >
-          <Sidebar contents={contents} currentContent={currentContent} setCurrentContent={handleSetCurrentContent} addNewContent={addNewContent} />
+          <Sidebar
+            contents={contents}
+            currentContent={currentContent}
+            setCurrentContent={handleSetCurrentContent}
+            addNewContent={addNewContent}
+          />
         </div>
 
         {/* Editor */}
@@ -244,7 +251,7 @@ export default function Page() {
             {
               "w-96": devbarOpen,
               "w-0 xl:w-0": !devbarOpen,
-            },
+            }
           )}
         >
           <Devbar nodes={nodes} setShowNodes={setShowNodes} />

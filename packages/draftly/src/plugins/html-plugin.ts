@@ -99,7 +99,9 @@ function parseHTMLTag(content: string): { tagName: string; isClosing: boolean; i
     isClosing: match[1] === "/",
     isSelfClosing:
       match[3] === "/" ||
-      ["br", "hr", "img", "input", "meta", "link", "area", "base", "col", "embed", "source", "track", "wbr"].includes(match[2]!.toLowerCase()),
+      ["br", "hr", "img", "input", "meta", "link", "area", "base", "col", "embed", "source", "track", "wbr"].includes(
+        match[2]!.toLowerCase()
+      ),
   };
 }
 
@@ -253,7 +255,7 @@ export class HTMLPlugin extends DecorationPlugin {
         decorations.push(
           Decoration.replace({
             widget: new InlineHTMLPreviewWidget(elem.content),
-          }).range(elem.from, elem.to),
+          }).range(elem.from, elem.to)
         );
       }
     }
@@ -285,7 +287,7 @@ export class HTMLPlugin extends DecorationPlugin {
         decorations.push(
           Decoration.replace({
             widget: new HTMLPreviewWidget(htmlContent.trim()),
-          }).range(from, nodeLineStart.to),
+          }).range(from, nodeLineStart.to)
         );
 
         for (let i = nodeLineStart.number + 1; i <= nodeLineEnd.number; i++) {

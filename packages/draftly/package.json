@@ -9,7 +9,6 @@
     "directory": "packages/draftly"
   },
   "type": "module",
-  "private": true,
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -38,7 +37,8 @@
   },
   "exports": {
     ".": "./src/index.ts",
-    "./types": "./src/types.ts"
+    "./*": "./src/*",
+    "./dist/*": "./dist/*"
   },
   "files": [
     "dist",

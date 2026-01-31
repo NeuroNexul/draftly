@@ -14,7 +14,15 @@ type Props = {
   setShowCode: Dispatch<SetStateAction<boolean>>;
 };
 
-export default function Header({ sidebarOpen, setSidebarOpen, devbarOpen, setDevbarOpen, saveStatus, showCode, setShowCode }: Props) {
+export default function Header({
+  sidebarOpen,
+  setSidebarOpen,
+  devbarOpen,
+  setDevbarOpen,
+  saveStatus,
+  showCode,
+  setShowCode,
+}: Props) {
   return (
     <header className="h-12 w-full border-b flex items-center justify-between py-1 px-4">
       <div className="flex items-center gap-3">

@@ -1,5 +1,12 @@
 import { Extension, Prec } from "@codemirror/state";
-import { drawSelection, EditorView, highlightActiveLine, KeyBinding, keymap, rectangularSelection } from "@codemirror/view";
+import {
+  drawSelection,
+  EditorView,
+  highlightActiveLine,
+  KeyBinding,
+  keymap,
+  rectangularSelection,
+} from "@codemirror/view";
 import { markdown, markdownKeymap, markdownLanguage } from "@codemirror/lang-markdown";
 import type { MarkdownConfig } from "@lezer/markdown";
 import { DraftlyPlugin, PluginContext } from "./plugin";

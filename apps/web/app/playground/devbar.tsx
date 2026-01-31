@@ -10,10 +10,17 @@ type Props = {
 export default function Devbar({ setShowNodes, nodes }: Props) {
   return (
     <div className="h-full w-full">
-      <div className="text-muted-foreground font-mono text-center whitespace-nowrap h-10 p-2 border-b">Developer Panel</div>
+      <div className="text-muted-foreground font-mono text-center whitespace-nowrap h-10 p-2 border-b">
+        Developer Panel
+      </div>
 
       <div className="h-[calc(100%-2.5rem)]">
-        <Accordion type="single" collapsible className="w-full h-full" onValueChange={(value) => setShowNodes(value === "nodes")}>
+        <Accordion
+          type="single"
+          collapsible
+          className="w-full h-full"
+          onValueChange={(value) => setShowNodes(value === "nodes")}
+        >
           <AccordionItem value="nodes" className="h-full [&>div]:h-[calc(100%-2.5rem)]">
             <AccordionTrigger className="p-2 border-b rounded-none hover:no-underline cursor-pointer hover:bg-accent hover:text-accent-foreground">
               <div>

@@ -54,7 +54,10 @@ export const DraftlyPluginsFacet = Facet.define<DraftlyPlugin[], DraftlyPlugin[]
 /**
  * Facet to register the onNodesChange callback
  */
-export const draftlyOnNodesChangeFacet = Facet.define<((nodes: DraftlyNode[]) => void) | undefined, ((nodes: DraftlyNode[]) => void) | undefined>({
+export const draftlyOnNodesChangeFacet = Facet.define<
+  ((nodes: DraftlyNode[]) => void) | undefined,
+  ((nodes: DraftlyNode[]) => void) | undefined
+>({
   combine: (values) => values.find((v) => v !== undefined),
 });
 
@@ -287,6 +290,15 @@ const draftlyEditorClass = EditorView.editorAttributes.of({ class: "cm-draftly-e
  * @param onNodesChange - Optional callback to receive nodes on every update
  * @returns Extension array including view plugin, theme, and plugin facet
  */
-export function createDraftlyViewExtension(plugins: DraftlyPlugin[] = [], onNodesChange?: (nodes: DraftlyNode[]) => void): Extension[] {
-  return [DraftlyPluginsFacet.of(plugins), draftlyOnNodesChangeFacet.of(onNodesChange), draftlyViewPlugin, draftlyBaseTheme, draftlyEditorClass];
+export function createDraftlyViewExtension(
+  plugins: DraftlyPlugin[] = [],
+  onNodesChange?: (nodes: DraftlyNode[]) => void
+): Extension[] {
+  return [
+    DraftlyPluginsFacet.of(plugins),
+    draftlyOnNodesChangeFacet.of(onNodesChange),
+    draftlyViewPlugin,
+    draftlyBaseTheme,
+    draftlyEditorClass,
+  ];
 }
