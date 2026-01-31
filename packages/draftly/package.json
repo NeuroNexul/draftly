@@ -9,12 +9,12 @@
     "directory": "packages/draftly"
   },
   "type": "module",
-  "main": "./dist/index.js",
+  "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "scripts": {
-    "build": "tsup src/index.ts --format esm --dts --clean",
-    "dev": "tsup src/index.ts --format esm --dts --watch",
+    "build": "tsup",
+    "dev": "tsup --watch",
     "lint": "eslint src/",
     "typecheck": "tsc --noEmit"
   },
@@ -36,12 +36,21 @@
     "zod": "^4.3.6"
   },
   "exports": {
-    ".": "./src/index.ts",
-    "./*": "./src/*",
-    "./dist/*": "./dist/*"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs",
+      "default": "./dist/index.js"
+    },
+    "./src": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./src/*": "./src/*"
   },
   "files": [
     "dist",
+    "src",
     "README.md",
     "LICENSE"
   ],
