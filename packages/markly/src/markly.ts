@@ -10,6 +10,19 @@ import { languages } from "@codemirror/language-data";
 import { defaultPlugins } from "./plugins/plugins";
 
 /**
+ * MarklyNode: represents a node in the markdown tree
+ *
+ * Useful for debugging and development
+ */
+export type MarklyNode = {
+  from: number;
+  to: number;
+  name: string;
+  children: MarklyNode[];
+  isSelected: boolean;
+};
+
+/**
  * Configuration options for the Markly editor
  */
 export interface MarklyConfig {
@@ -48,6 +61,9 @@ export interface MarklyConfig {
 
   /** Line wrapping in raw markdown mode */
   lineWrapping?: boolean;
+
+  /** Callback to receive the nodes on every update */
+  onNodesChange?: (nodes: MarklyNode[]) => void;
 }
 
 /**
@@ -84,6 +100,7 @@ export function markly(config: MarklyConfig = {}): Extension[] {
     highlightActiveLine: configHighlightActiveLine = true,
     rectangularSelection: configRectangularSelection = true,
     lineWrapping: configLineWrapping = true,
+    onNodesChange: configOnNodesChange = undefined,
   } = config;
 
   const allPlugins = [...defaultPlugins, ...plugins];
@@ -146,7 +163,7 @@ export function markly(config: MarklyConfig = {}): Extension[] {
 
   // Markly extensions (pass plugins for decoration support)
   const marklyExtensions: Extension[] = [];
-  if (!disableViewPlugin) marklyExtensions.push(createMarklyViewExtension(allPlugins));
+  if (!disableViewPlugin) marklyExtensions.push(createMarklyViewExtension(allPlugins, configOnNodesChange));
   if (!disableViewPlugin || configLineWrapping) marklyExtensions.push(EditorView.lineWrapping);
 
   // Compose all extensions together

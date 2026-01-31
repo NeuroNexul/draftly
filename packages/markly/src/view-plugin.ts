@@ -4,6 +4,7 @@ import { syntaxHighlighting, syntaxTree } from "@codemirror/language";
 import { cursorInRange, selectionOverlapsRange } from "./utils";
 import { highlightStyle, marklyBaseTheme } from "./theme";
 import { DecorationContext, MarklyPlugin } from "./plugin";
+import { MarklyNode } from "./markly";
 
 /**
  * Mark decorations for inline styling
@@ -48,6 +49,13 @@ const lineDecorations = {
  */
 export const marklyPluginsFacet = Facet.define<MarklyPlugin[], MarklyPlugin[]>({
   combine: (values) => values.flat(),
+});
+
+/**
+ * Facet to register the onNodesChange callback
+ */
+export const marklyOnNodesChangeFacet = Facet.define<((nodes: MarklyNode[]) => void) | undefined, ((nodes: MarklyNode[]) => void) | undefined>({
+  combine: (values) => values.find((v) => v !== undefined),
 });
 
 /**
@@ -186,20 +194,28 @@ function buildDecorations(view: EditorView, plugins: MarklyPlugin[] = []): Decor
 class MarklyViewPluginClass {
   decorations: DecorationSet;
   private plugins: MarklyPlugin[];
+  private onNodesChange?: (nodes: MarklyNode[]) => void;
 
   constructor(view: EditorView) {
     this.plugins = view.state.facet(marklyPluginsFacet);
+    this.onNodesChange = view.state.facet(marklyOnNodesChangeFacet);
     this.decorations = buildDecorations(view, this.plugins);
 
     // Notify plugins that view is ready
     for (const plugin of this.plugins) {
       plugin.onViewReady(view);
     }
+
+    // Call onNodesChange callback with initial nodes
+    if (this.onNodesChange) {
+      this.onNodesChange(this.buildNodes(view));
+    }
   }
 
   update(update: ViewUpdate) {
     // Update plugins list if facet changed
     this.plugins = update.view.state.facet(marklyPluginsFacet);
+    this.onNodesChange = update.view.state.facet(marklyOnNodesChangeFacet);
 
     // Notify plugins of the update
     for (const plugin of this.plugins) {
@@ -212,7 +228,43 @@ class MarklyViewPluginClass {
     // - Viewport changes
     if (update.docChanged || update.selectionSet || update.viewportChanged) {
       this.decorations = buildDecorations(update.view, this.plugins);
+
+      // Call onNodesChange callback
+      if (this.onNodesChange) {
+        this.onNodesChange(this.buildNodes(update.view));
+      }
     }
+  }
+
+  private buildNodes(view: EditorView): MarklyNode[] {
+    const tree = syntaxTree(view.state);
+    const roots: MarklyNode[] = [];
+    const stack: MarklyNode[] = [];
+
+    tree.iterate({
+      enter: (nodeRef) => {
+        const node: MarklyNode = {
+          from: nodeRef.from,
+          to: nodeRef.to,
+          name: nodeRef.name,
+          children: [],
+          isSelected: selectionOverlapsRange(view, nodeRef.from, nodeRef.to),
+        };
+
+        if (stack.length > 0) {
+          stack[stack.length - 1]!.children.push(node);
+        } else {
+          roots.push(node);
+        }
+
+        stack.push(node);
+      },
+      leave: () => {
+        stack.pop();
+      },
+    });
+
+    return roots;
   }
 }
 
@@ -227,8 +279,9 @@ export const marklyViewPlugin = ViewPlugin.fromClass(MarklyViewPluginClass, {
 /**
  * Create Markly view extension bundle with plugin support
  * @param plugins - Optional array of MarklyPlugin instances
+ * @param onNodesChange - Optional callback to receive nodes on every update
  * @returns Extension array including view plugin, theme, and plugin facet
  */
-export function createMarklyViewExtension(plugins: MarklyPlugin[] = []): Extension[] {
-  return [marklyPluginsFacet.of(plugins), marklyViewPlugin, marklyBaseTheme];
+export function createMarklyViewExtension(plugins: MarklyPlugin[] = [], onNodesChange?: (nodes: MarklyNode[]) => void): Extension[] {
+  return [marklyPluginsFacet.of(plugins), marklyOnNodesChangeFacet.of(onNodesChange), marklyViewPlugin, marklyBaseTheme];
 }
