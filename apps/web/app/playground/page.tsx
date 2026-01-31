@@ -12,7 +12,7 @@ import { Loader2 } from "lucide-react";
 
 import CodeMirror, { Extension, ReactCodeMirrorRef } from "@uiw/react-codemirror";
 import { githubDark, githubLight } from "@uiw/codemirror-theme-github";
-import markly from "markly";
+import markly, { MarklyNode } from "markly";
 import { useTheme } from "next-themes";
 
 const STORAGE_KEY = "markly-playground-contents";
@@ -25,9 +25,14 @@ export default function Page() {
   const { theme } = useTheme();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [devbarOpen, setDevbarOpen] = useState(true);
+
   const [contents, setContents] = useState<Content[]>([]);
   const [currentContent, setCurrentContent] = useState<number>(-1);
+
   const [showCode, setShowCode] = useState(false);
+  const [showNodes, setShowNodes] = useState(false);
+  const [nodes, setNodes] = useState<MarklyNode[]>([]);
+
   const [isLoading, setIsLoading] = useState(true);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -142,8 +147,11 @@ export default function Page() {
         highlightActiveLine: true,
         rectangularSelection: true,
         lineWrapping: true,
+        onNodesChange: (nodes) => {
+          if (showNodes) setNodes(nodes);
+        },
       }),
-    [showCode],
+    [showCode, showNodes, setNodes],
   );
 
   if (isLoading) {
@@ -238,7 +246,7 @@ export default function Page() {
             },
           )}
         >
-          <Devbar />
+          <Devbar nodes={nodes} setShowNodes={setShowNodes} />
         </div>
       </main>
 
