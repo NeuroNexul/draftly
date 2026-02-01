@@ -46,6 +46,11 @@ export type ThemeStyle = {
 
 /**
  * Function to create the themes
+ *
+ * @param defaultTheme - Default theme -- Always applied
+ * @param darkTheme - Dark theme -- Applied when theme is "dark" or "auto" and system is dark
+ * @param lightTheme - Light theme -- Applied when theme is "light" or "auto" and system is light
+ * @returns Theme function
  */
 export function createTheme({
   default: defaultTheme,
@@ -57,14 +62,17 @@ export function createTheme({
   light?: ThemeStyle;
 }): (theme: "dark" | "light" | "auto") => ThemeStyle {
   return (theme: "dark" | "light" | "auto") => {
-    switch (theme) {
-      case "dark":
-        return darkTheme || defaultTheme;
-      case "light":
-        return lightTheme || defaultTheme;
-      default:
-        return defaultTheme;
+    let style = defaultTheme;
+
+    if (theme === "dark") {
+      style = { ...style, ...darkTheme };
     }
+
+    if (theme === "light") {
+      style = { ...style, ...lightTheme };
+    }
+
+    return style;
   };
 }
 
