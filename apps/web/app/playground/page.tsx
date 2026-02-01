@@ -5,6 +5,7 @@ import { useTheme } from "next-themes";
 import { cn } from "@workspace/ui/lib/utils";
 import { Button } from "@workspace/ui/components/button";
 import { Loader2 } from "lucide-react";
+import { v4 as uuid } from "uuid";
 
 import Footer from "./footer";
 import Header from "./header";
@@ -119,7 +120,7 @@ export default function Page() {
 
   function addNewContent(title: string) {
     const newContent: Content = {
-      id: crypto.randomUUID(),
+      id: uuid(),
       title,
       content: `# ${title}\n\n## Hello World`,
     };

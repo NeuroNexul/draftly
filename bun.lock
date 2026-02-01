@@ -15,7 +15,7 @@
     },
     "apps/web": {
       "name": "web",
-      "version": "0.0.1",
+      "version": "0.0.2-alpha.0",
       "dependencies": {
         "@codemirror/commands": "^6.10.1",
         "@codemirror/lang-json": "^6.0.2",
@@ -41,6 +41,7 @@
         "react-resizable-panels": "^4.5.6",
         "recharts": "2.15.4",
         "sonner": "^2.0.7",
+        "uuid": "^13.0.0",
         "vaul": "^1.1.2",
         "zod": "^4.3.6",
       },
@@ -57,7 +58,7 @@
     },
     "packages/draftly": {
       "name": "draftly",
-      "version": "0.0.0",
+      "version": "0.1.0-alpha.0",
       "dependencies": {
         "@lezer/common": "^1.5.0",
         "@lezer/highlight": "^1.2.3",
@@ -1730,6 +1731,8 @@
     "use-sync-external-store": ["use-sync-external-store@1.6.0", "", { "peerDependencies": { "react": "^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0" } }, "sha512-Pp6GSwGP/NrPIrxVFAIkOQeyw8lFenOHijQWkUTrDvrF4ALqylP2C/KCkeS9dpUM3KvYRQhna5vt7IL95+ZQ9w=="],
 
     "util-deprecate": ["util-deprecate@1.0.2", "", {}, "sha512-EPD5q1uXyFxJpCrLnCc1nHnq3gOa6DZBocAIiI2TaSCA7VCJ1UJDMagCzIkXNsUYfD1daK//LTEQ8xiIbrHtcw=="],
+
+    "uuid": ["uuid@13.0.0", "", { "bin": { "uuid": "dist-node/bin/uuid" } }, "sha512-XQegIaBTVUjSHliKqcnFqYypAd4S+WCYt5NIeRs6w/UAry7z8Y9j5ZwRRL4kzq9U3sD6v+85er9FvkEaBpji2w=="],
 
     "v8-compile-cache-lib": ["v8-compile-cache-lib@3.0.1", "", {}, "sha512-wa7YjyUGfNZngI/vtK0UHAN+lgDCxBPCylVXGp0zu59Fz5aiGtNXaq3DhIov063MorB+VfufLh3JlF2KdTK3xg=="],
 
