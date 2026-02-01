@@ -1,19 +1,21 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTheme } from "next-themes";
 import { cn } from "@workspace/ui/lib/utils";
+import { Button } from "@workspace/ui/components/button";
+import { Loader2 } from "lucide-react";
+
 import Footer from "./footer";
 import Header from "./header";
 import Devbar from "./devbar";
 import Sidebar from "./sidebar";
 import { Content } from "./types";
-import { Button } from "@workspace/ui/components/button";
-import { Loader2 } from "lucide-react";
 
 import CodeMirror, { Extension, ReactCodeMirrorRef } from "@uiw/react-codemirror";
 import { githubDark, githubLight } from "@uiw/codemirror-theme-github";
-import draftly, { DraftlyNode } from "draftly";
-import { useTheme } from "next-themes";
+import { draftly, DraftlyNode } from "draftly/editor";
+import { allPlugins } from "draftly/plugins";
 
 const STORAGE_KEY = "draftly-playground-contents";
 const STORAGE_CURRENT_KEY = "draftly-playground-current";
@@ -137,7 +139,7 @@ export default function Page() {
   const defaultExtensions = useMemo<Extension[]>(
     () =>
       draftly({
-        plugins: [],
+        plugins: allPlugins,
         markdown: [],
         extensions: [],
         keymap: [],
