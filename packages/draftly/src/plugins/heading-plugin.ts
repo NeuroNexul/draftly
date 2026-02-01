@@ -1,7 +1,6 @@
-import { Decoration, EditorView } from "@codemirror/view";
+import { Decoration } from "@codemirror/view";
 import { syntaxTree } from "@codemirror/language";
-import { DecorationContext, DecorationPlugin } from "../editor/plugin";
-import { Extension } from "@codemirror/state";
+import { createTheme, DecorationContext, DecorationPlugin } from "../editor/plugin";
 
 /**
  * Node types for ATX headings in markdown
@@ -44,19 +43,13 @@ const headingLineDecorations = {
 export class HeadingPlugin extends DecorationPlugin {
   readonly name = "heading";
   readonly version = "1.0.0";
+  readonly theme = theme;
 
   /**
    * Higher priority to ensure headings are styled first
    */
   override get decorationPriority(): number {
     return 10;
-  }
-
-  /**
-   * Get the extensions for this plugin
-   */
-  getExtensions(): Extension[] {
-    return [headingTheme];
   }
 
   /**
@@ -99,65 +92,67 @@ export class HeadingPlugin extends DecorationPlugin {
   }
 }
 
-const headingTheme = EditorView.theme({
-  ".cm-draftly-h1": {
-    fontSize: "2em",
-    fontWeight: "bold",
-    fontFamily: "sans-serif",
-    textDecoration: "none",
-  },
+const theme = createTheme({
+  default: {
+    ".cm-draftly-h1": {
+      fontSize: "2em",
+      fontWeight: "bold",
+      fontFamily: "sans-serif",
+      textDecoration: "none",
+    },
 
-  ".cm-draftly-h2": {
-    fontSize: "1.75em",
-    fontWeight: "bold",
-    fontFamily: "sans-serif",
-    textDecoration: "none",
-  },
+    ".cm-draftly-h2": {
+      fontSize: "1.75em",
+      fontWeight: "bold",
+      fontFamily: "sans-serif",
+      textDecoration: "none",
+    },
 
-  ".cm-draftly-h3": {
-    fontSize: "1.5em",
-    fontWeight: "bold",
-    fontFamily: "sans-serif",
-    textDecoration: "none",
-  },
+    ".cm-draftly-h3": {
+      fontSize: "1.5em",
+      fontWeight: "bold",
+      fontFamily: "sans-serif",
+      textDecoration: "none",
+    },
 
-  ".cm-draftly-h4": {
-    fontSize: "1.25em",
-    fontWeight: "bold",
-    fontFamily: "sans-serif",
-    textDecoration: "none",
-  },
+    ".cm-draftly-h4": {
+      fontSize: "1.25em",
+      fontWeight: "bold",
+      fontFamily: "sans-serif",
+      textDecoration: "none",
+    },
 
-  ".cm-draftly-h5": {
-    fontSize: "1em",
-    fontWeight: "bold",
-    fontFamily: "sans-serif",
-    textDecoration: "none",
-  },
+    ".cm-draftly-h5": {
+      fontSize: "1em",
+      fontWeight: "bold",
+      fontFamily: "sans-serif",
+      textDecoration: "none",
+    },
 
-  ".cm-draftly-h6": {
-    fontSize: "0.75em",
-    fontWeight: "bold",
-    fontFamily: "sans-serif",
-    textDecoration: "none",
-  },
+    ".cm-draftly-h6": {
+      fontSize: "0.75em",
+      fontWeight: "bold",
+      fontFamily: "sans-serif",
+      textDecoration: "none",
+    },
 
-  // Heading line styles
-  ".cm-draftly-line-h1": {
-    paddingTop: "1.5em",
-    paddingBottom: "0.5em",
-  },
-  ".cm-draftly-line-h2": {
-    paddingTop: "1.25em",
-    paddingBottom: "0.5em",
-  },
-  ".cm-draftly-line-h3, .cm-draftly-line-h4, .cm-draftly-line-h5, .cm-draftly-line-h6": {
-    paddingTop: "1em",
-    paddingBottom: "0.5em",
-  },
+    // Heading line styles
+    ".cm-draftly-line-h1": {
+      paddingTop: "1.5em",
+      paddingBottom: "0.5em",
+    },
+    ".cm-draftly-line-h2": {
+      paddingTop: "1.25em",
+      paddingBottom: "0.5em",
+    },
+    ".cm-draftly-line-h3, .cm-draftly-line-h4, .cm-draftly-line-h5, .cm-draftly-line-h6": {
+      paddingTop: "1em",
+      paddingBottom: "0.5em",
+    },
 
-  // Heading mark (# symbols)
-  ".cm-draftly-heading-mark": {
-    display: "none",
+    // Heading mark (# symbols)
+    ".cm-draftly-heading-mark": {
+      display: "none",
+    },
   },
 });

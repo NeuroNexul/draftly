@@ -1,7 +1,6 @@
-import { Decoration, EditorView } from "@codemirror/view";
+import { Decoration } from "@codemirror/view";
 import { syntaxTree } from "@codemirror/language";
-import { DecorationContext, DecorationPlugin } from "../editor/plugin";
-import { Extension } from "@codemirror/state";
+import { createTheme, DecorationContext, DecorationPlugin } from "../editor/plugin";
 
 /**
  * Node types for inline styling in markdown
@@ -42,19 +41,13 @@ const inlineMarkDecorations = {
 export class InlinePlugin extends DecorationPlugin {
   readonly name = "inline";
   readonly version = "1.0.0";
+  readonly theme = theme;
 
   /**
    * Moderate priority for inline styling
    */
   override get decorationPriority(): number {
     return 20;
-  }
-
-  /**
-   * Get the extensions for this plugin (theme)
-   */
-  override getExtensions(): Extension[] {
-    return [inlineTheme];
   }
 
   /**
@@ -116,37 +109,39 @@ export class InlinePlugin extends DecorationPlugin {
 /**
  * Theme for inline styling
  */
-const inlineTheme = EditorView.theme({
-  // Emphasis (italic)
-  ".cm-draftly-emphasis": {
-    fontStyle: "italic",
-  },
+const theme = createTheme({
+  default: {
+    // Emphasis (italic)
+    ".cm-draftly-emphasis": {
+      fontStyle: "italic",
+    },
 
-  // Strong (bold)
-  ".cm-draftly-strong": {
-    fontWeight: "bold",
-  },
+    // Strong (bold)
+    ".cm-draftly-strong": {
+      fontWeight: "bold",
+    },
 
-  // Strikethrough
-  ".cm-draftly-strikethrough": {
-    textDecoration: "line-through",
-    opacity: "0.7",
-  },
+    // Strikethrough
+    ".cm-draftly-strikethrough": {
+      textDecoration: "line-through",
+      opacity: "0.7",
+    },
 
-  // Subscript
-  ".cm-draftly-subscript": {
-    fontSize: "0.75em",
-    verticalAlign: "sub",
-  },
+    // Subscript
+    ".cm-draftly-subscript": {
+      fontSize: "0.75em",
+      verticalAlign: "sub",
+    },
 
-  // Superscript
-  ".cm-draftly-superscript": {
-    fontSize: "0.75em",
-    verticalAlign: "super",
-  },
+    // Superscript
+    ".cm-draftly-superscript": {
+      fontSize: "0.75em",
+      verticalAlign: "super",
+    },
 
-  // Inline markers (* _ ~~ ^ ~) - hidden when not focused
-  ".cm-draftly-inline-mark": {
-    display: "none",
+    // Inline markers (* _ ~~ ^ ~) - hidden when not focused
+    ".cm-draftly-inline-mark": {
+      display: "none",
+    },
   },
 });

@@ -1,7 +1,6 @@
-import { Decoration, EditorView, WidgetType } from "@codemirror/view";
+import { Decoration, WidgetType } from "@codemirror/view";
 import { syntaxTree } from "@codemirror/language";
-import { Extension } from "@codemirror/state";
-import { DecorationContext, DecorationPlugin } from "../editor/plugin";
+import { createTheme, DecorationContext, DecorationPlugin } from "../editor/plugin";
 import DOMPurify from "dompurify";
 
 /**
@@ -111,13 +110,10 @@ function parseHTMLTag(content: string): { tagName: string; isClosing: boolean; i
 export class HTMLPlugin extends DecorationPlugin {
   readonly name = "html";
   readonly version = "1.0.0";
+  readonly theme = theme;
 
   override get decorationPriority(): number {
     return 30;
-  }
-
-  override getExtensions(): Extension[] {
-    return [htmlTheme];
   }
 
   override buildDecorations(ctx: DecorationContext): void {
@@ -302,46 +298,48 @@ export class HTMLPlugin extends DecorationPlugin {
 /**
  * Theme for HTML styling
  */
-const htmlTheme = EditorView.theme({
-  ".cm-draftly-html-tag": {
-    color: "#6a737d",
-    fontFamily: "var(--font-jetbrains-mono, monospace)",
-    fontSize: "0.85em",
-  },
+const theme = createTheme({
+  default: {
+    ".cm-draftly-html-tag": {
+      color: "#6a737d",
+      fontFamily: "var(--font-jetbrains-mono, monospace)",
+      fontSize: "0.85em",
+    },
 
-  ".cm-draftly-html-comment": {
-    color: "#6a737d",
-    fontStyle: "italic",
-    fontFamily: "var(--font-jetbrains-mono, monospace)",
-    fontSize: "0.85em",
-    opacity: 0.5,
-  },
+    ".cm-draftly-html-comment": {
+      color: "#6a737d",
+      fontStyle: "italic",
+      fontFamily: "var(--font-jetbrains-mono, monospace)",
+      fontSize: "0.85em",
+      opacity: 0.5,
+    },
 
-  ".cm-draftly-line-html-block": {
-    backgroundColor: "rgba(0, 0, 0, 0.02)",
-  },
+    ".cm-draftly-line-html-block": {
+      backgroundColor: "rgba(0, 0, 0, 0.02)",
+    },
 
-  ".cm-draftly-hidden-line": {
-    display: "none",
-  },
+    ".cm-draftly-hidden-line": {
+      display: "none",
+    },
 
-  ".cm-draftly-html-preview": {
-    display: "inline-block",
-    width: "100%",
-    verticalAlign: "top",
-    margin: "0",
-    whiteSpace: "normal",
-    lineHeight: "1.4",
-  },
-  ".cm-draftly-html-preview > *:first-child": {
-    marginTop: "0",
-  },
-  ".cm-draftly-html-preview > *:last-child": {
-    marginBottom: "0",
-  },
+    ".cm-draftly-html-preview": {
+      display: "inline-block",
+      width: "100%",
+      verticalAlign: "top",
+      margin: "0",
+      whiteSpace: "normal",
+      lineHeight: "1.4",
+    },
+    ".cm-draftly-html-preview > *:first-child": {
+      marginTop: "0",
+    },
+    ".cm-draftly-html-preview > *:last-child": {
+      marginBottom: "0",
+    },
 
-  ".cm-draftly-inline-html-preview": {
-    display: "inline",
-    whiteSpace: "normal",
+    ".cm-draftly-inline-html-preview": {
+      display: "inline",
+      whiteSpace: "normal",
+    },
   },
 });
