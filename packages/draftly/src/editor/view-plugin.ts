@@ -62,6 +62,13 @@ export const draftlyOnNodesChangeFacet = Facet.define<
 });
 
 /**
+ * Facet to register the theme
+ */
+export const draftlyThemeFacet = Facet.define<"dark" | "light" | "auto", "dark" | "light" | "auto">({
+  combine: (values) => values.find((v) => v !== undefined) || "auto",
+});
+
+/**
  * Build decorations for the visible viewport
  * @param view - The EditorView instance
  * @param plugins - Optional array of plugins to invoke for decorations
@@ -291,14 +298,17 @@ const draftlyEditorClass = EditorView.editorAttributes.of({ class: "cm-draftly-e
  * @returns Extension array including view plugin, theme, and plugin facet
  */
 export function createDraftlyViewExtension(
+  theme: "dark" | "light" | "auto" = "auto",
+  baseStyles: boolean = true,
   plugins: DraftlyPlugin[] = [],
   onNodesChange?: (nodes: DraftlyNode[]) => void
 ): Extension[] {
   return [
     DraftlyPluginsFacet.of(plugins),
     draftlyOnNodesChangeFacet.of(onNodesChange),
+    draftlyThemeFacet.of(theme),
     draftlyViewPlugin,
-    draftlyBaseTheme,
+    ...(baseStyles ? [draftlyBaseTheme] : []),
     draftlyEditorClass,
   ];
 }

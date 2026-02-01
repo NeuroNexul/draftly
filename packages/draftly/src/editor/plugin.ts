@@ -2,6 +2,7 @@ import { Decoration, EditorView, KeyBinding, ViewUpdate, WidgetType } from "@cod
 import { Extension, Range } from "@codemirror/state";
 import { MarkdownConfig } from "@lezer/markdown";
 import { DraftlyConfig } from "./draftly";
+import { StyleSpec } from "style-mod";
 
 /**
  * Context passed to plugin lifecycle methods
@@ -37,6 +38,37 @@ export interface DecorationContext {
 }
 
 /**
+ * Theme style
+ */
+export type ThemeStyle = {
+  [selector: string]: StyleSpec;
+};
+
+/**
+ * Function to create the themes
+ */
+export function createTheme({
+  default: defaultTheme,
+  dark: darkTheme,
+  light: lightTheme,
+}: {
+  default: ThemeStyle;
+  dark?: ThemeStyle;
+  light?: ThemeStyle;
+}): (theme: "dark" | "light" | "auto") => ThemeStyle {
+  return (theme: "dark" | "light" | "auto") => {
+    switch (theme) {
+      case "dark":
+        return darkTheme || defaultTheme;
+      case "light":
+        return lightTheme || defaultTheme;
+      default:
+        return defaultTheme;
+    }
+  };
+}
+
+/**
  * Abstract base class for all draftly plugins
  *
  * Implements OOP principles:
@@ -50,6 +82,13 @@ export abstract class DraftlyPlugin {
 
   /** Plugin version (abstract - must be implemented) */
   abstract readonly version: string;
+
+  /** Private theme storage */
+  readonly theme: (theme: "dark" | "light" | "auto") => ThemeStyle = createTheme({
+    default: {},
+    dark: {},
+    light: {},
+  });
 
   /** Plugin dependencies - names of required plugins */
   readonly dependencies: string[] = [];

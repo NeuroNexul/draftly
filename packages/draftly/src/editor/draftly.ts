@@ -32,6 +32,12 @@ export type DraftlyNode = {
  * Configuration options for the draftly editor
  */
 export interface DraftlyConfig {
+  /** Theme */
+  theme?: "light" | "dark" | "auto";
+
+  /** Weather to load base styles */
+  baseStyles?: boolean;
+
   /** Plugins to load */
   plugins?: DraftlyPlugin[];
 
@@ -95,6 +101,8 @@ export interface DraftlyConfig {
  */
 export function draftly(config: DraftlyConfig = {}): Extension[] {
   const {
+    theme: configTheme = "auto",
+    baseStyles = true,
     plugins = [],
     extensions = [],
     keymap: configKeymap = [],
@@ -136,6 +144,12 @@ export function draftly(config: DraftlyConfig = {}): Extension[] {
       pluginKeymaps.push(...keys);
     }
 
+    // Collect theme via class method
+    const theme = plugin.theme;
+    if (baseStyles && theme && typeof theme === "function") {
+      pluginExtensions.push(EditorView.theme(theme(configTheme)));
+    }
+
     // Collect markdown parser extensions via class method
     const md = plugin.getMarkdownConfig();
     if (md) {
@@ -169,7 +183,8 @@ export function draftly(config: DraftlyConfig = {}): Extension[] {
 
   // draftly extensions (pass plugins for decoration support)
   const draftlyExtensions: Extension[] = [];
-  if (!disableViewPlugin) draftlyExtensions.push(createDraftlyViewExtension(allPlugins, configOnNodesChange));
+  if (!disableViewPlugin)
+    draftlyExtensions.push(createDraftlyViewExtension(configTheme, baseStyles, allPlugins, configOnNodesChange));
   if (!disableViewPlugin || configLineWrapping) draftlyExtensions.push(EditorView.lineWrapping);
 
   // Compose all extensions together
