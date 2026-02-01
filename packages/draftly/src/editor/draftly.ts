@@ -14,7 +14,6 @@ import { createDraftlyViewExtension } from "./view-plugin";
 import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
 import { indentOnInput } from "@codemirror/language";
 import { languages } from "@codemirror/language-data";
-import { defaultPlugins } from "./plugins/plugins";
 
 /**
  * DraftlyNode: represents a node in the markdown tree
@@ -110,7 +109,7 @@ export function draftly(config: DraftlyConfig = {}): Extension[] {
     onNodesChange: configOnNodesChange = undefined,
   } = config;
 
-  const allPlugins = [...defaultPlugins, ...plugins];
+  const allPlugins = [...plugins];
 
   // Collect all extensions from plugins
   const pluginExtensions: Extension[] = [];

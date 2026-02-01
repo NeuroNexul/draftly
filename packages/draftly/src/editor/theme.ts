@@ -1,7 +1,7 @@
 import { EditorView } from "@codemirror/view";
 import { HighlightStyle } from "@codemirror/language";
 
-export const highlightStyle = HighlightStyle.define([]);
+export const defaultHighlightStyle = HighlightStyle.define([]);
 
 /**
  * Base theme for draftly styling

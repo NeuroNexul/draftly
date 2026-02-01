@@ -1,6 +1,6 @@
 import { Decoration, EditorView } from "@codemirror/view";
 import { syntaxTree } from "@codemirror/language";
-import { DecorationContext, DecorationPlugin } from "../plugin";
+import { DecorationContext, DecorationPlugin } from "../editor/plugin";
 import { Extension } from "@codemirror/state";
 
 /**

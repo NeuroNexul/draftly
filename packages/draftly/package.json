@@ -42,6 +42,18 @@
       "require": "./dist/index.cjs",
       "default": "./dist/index.js"
     },
+    "./editor": {
+      "types": "./dist/editor/index.d.ts",
+      "import": "./dist/editor/index.js",
+      "require": "./dist/editor/index.cjs",
+      "default": "./dist/editor/index.js"
+    },
+    "./plugins": {
+      "types": "./dist/plugins/index.d.ts",
+      "import": "./dist/plugins/index.js",
+      "require": "./dist/plugins/index.cjs",
+      "default": "./dist/plugins/index.js"
+    },
     "./src": {
       "types": "./src/index.ts",
       "default": "./src/index.ts"

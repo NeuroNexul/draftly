@@ -1,7 +1,3 @@
-import { draftly } from "./draftly";
-
-export default draftly;
-
-export * from "./draftly";
-export * from "./plugin";
-export * from "./view-plugin";
+// Re-export everything for backward compatibility
+export * from "./editor";
+export * from "./plugins";

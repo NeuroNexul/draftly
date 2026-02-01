@@ -1,7 +1,7 @@
 import { Decoration, EditorView, WidgetType } from "@codemirror/view";
 import { syntaxTree } from "@codemirror/language";
 import { Extension } from "@codemirror/state";
-import { DecorationContext, DecorationPlugin } from "../plugin";
+import { DecorationContext, DecorationPlugin } from "../editor/plugin";
 import DOMPurify from "dompurify";
 
 /**

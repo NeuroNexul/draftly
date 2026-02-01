@@ -2,7 +2,7 @@ import { Decoration, DecorationSet, EditorView, ViewPlugin, ViewUpdate } from "@
 import { Extension, Facet, Range, RangeSetBuilder } from "@codemirror/state";
 import { syntaxHighlighting, syntaxTree } from "@codemirror/language";
 import { cursorInRange, selectionOverlapsRange } from "./utils";
-import { highlightStyle, draftlyBaseTheme } from "./theme";
+import { defaultHighlightStyle, draftlyBaseTheme } from "./theme";
 import { DecorationContext, DraftlyPlugin } from "./plugin";
 import { DraftlyNode } from "./draftly";
 
@@ -276,7 +276,7 @@ class draftlyViewPluginClass {
  */
 export const draftlyViewPlugin = ViewPlugin.fromClass(draftlyViewPluginClass, {
   decorations: (v) => v.decorations,
-  provide: () => [syntaxHighlighting(highlightStyle)],
+  provide: () => [syntaxHighlighting(defaultHighlightStyle)],
 });
 
 /**
