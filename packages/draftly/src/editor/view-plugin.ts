@@ -304,11 +304,11 @@ export function createDraftlyViewExtension(
   onNodesChange?: (nodes: DraftlyNode[]) => void
 ): Extension[] {
   return [
+    draftlyEditorClass,
     DraftlyPluginsFacet.of(plugins),
     draftlyOnNodesChangeFacet.of(onNodesChange),
     draftlyThemeFacet.of(theme),
     draftlyViewPlugin,
     ...(baseStyles ? [draftlyBaseTheme] : []),
-    draftlyEditorClass,
   ];
 }

@@ -140,6 +140,8 @@ export default function Page() {
   const defaultExtensions = useMemo<Extension[]>(
     () =>
       draftly({
+        theme: theme && theme !== "system" ? (theme.includes("dark") ? "dark" : "light") : "auto",
+        baseStyles: true,
         plugins: allPlugins,
         markdown: [],
         extensions: [],
@@ -156,7 +158,7 @@ export default function Page() {
           if (showNodes) setNodes(nodes);
         },
       }),
-    [showCode, showNodes, setNodes]
+    [theme, showCode, showNodes]
   );
 
   if (isLoading) {
