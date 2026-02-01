@@ -1,20 +1,17 @@
 import { EditorView } from "@codemirror/view";
-import { HighlightStyle } from "@codemirror/language";
-
-export const defaultHighlightStyle = HighlightStyle.define([]);
 
 /**
  * Base theme for draftly styling
- * Note: Layout styles are scoped under .cm-draftly-enabled which is added by the view plugin
+ * Note: Layout styles are scoped under .cm-draftly which is added by the view plugin
  */
 export const draftlyBaseTheme = EditorView.baseTheme({
   // Container styles - only apply when view plugin is enabled
-  "&.cm-draftly-enabled": {
+  "&.cm-draftly": {
     fontSize: "16px",
     lineHeight: "1.6",
   },
 
-  "&.cm-draftly-enabled .cm-content": {
+  "&.cm-draftly .cm-content": {
     maxWidth: "48rem",
     margin: "0 auto",
     fontFamily: "var(--font-sans, sans-serif)",

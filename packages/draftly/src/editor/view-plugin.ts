@@ -1,8 +1,8 @@
 import { Decoration, DecorationSet, EditorView, ViewPlugin, ViewUpdate } from "@codemirror/view";
 import { Extension, Facet, Range, RangeSetBuilder } from "@codemirror/state";
-import { syntaxHighlighting, syntaxTree } from "@codemirror/language";
+import { syntaxTree } from "@codemirror/language";
 import { cursorInRange, selectionOverlapsRange } from "./utils";
-import { defaultHighlightStyle, draftlyBaseTheme } from "./theme";
+import { draftlyBaseTheme } from "./theme";
 import { DecorationContext, DraftlyPlugin } from "./plugin";
 import { DraftlyNode } from "./draftly";
 
@@ -283,13 +283,13 @@ class draftlyViewPluginClass {
  */
 export const draftlyViewPlugin = ViewPlugin.fromClass(draftlyViewPluginClass, {
   decorations: (v) => v.decorations,
-  provide: () => [syntaxHighlighting(defaultHighlightStyle)],
+  provide: () => [],
 });
 
 /**
  * Extension to add the cm-draftly-enabled class to the editor
  */
-const draftlyEditorClass = EditorView.editorAttributes.of({ class: "cm-draftly-enabled" });
+const draftlyEditorClass = EditorView.editorAttributes.of({ class: "cm-draftly" });
 
 /**
  * Create draftly view extension bundle with plugin support
