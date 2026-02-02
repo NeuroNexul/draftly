@@ -28,7 +28,7 @@ class HTMLPreviewWidget extends WidgetType {
     super();
   }
 
-  eq(other: HTMLPreviewWidget): boolean {
+  override eq(other: HTMLPreviewWidget): boolean {
     return other.html === this.html;
   }
 
@@ -39,7 +39,7 @@ class HTMLPreviewWidget extends WidgetType {
     return div;
   }
 
-  ignoreEvent() {
+  override ignoreEvent() {
     return false;
   }
 }
@@ -52,7 +52,7 @@ class InlineHTMLPreviewWidget extends WidgetType {
     super();
   }
 
-  eq(other: InlineHTMLPreviewWidget): boolean {
+  override eq(other: InlineHTMLPreviewWidget): boolean {
     return other.html === this.html;
   }
 
@@ -63,7 +63,7 @@ class InlineHTMLPreviewWidget extends WidgetType {
     return span;
   }
 
-  ignoreEvent() {
+  override ignoreEvent() {
     return false;
   }
 }
@@ -111,10 +111,17 @@ function parseHTMLTag(content: string): { tagName: string; isClosing: boolean; i
 export class HTMLPlugin extends DecorationPlugin {
   readonly name = "html";
   readonly version = "1.0.0";
-  readonly theme = theme;
+  override decorationPriority = 30;
 
-  override get decorationPriority(): number {
-    return 30;
+  constructor() {
+    super();
+  }
+
+  /**
+   * Plugin theme
+   */
+  override get theme() {
+    return theme;
   }
 
   override buildDecorations(ctx: DecorationContext): void {

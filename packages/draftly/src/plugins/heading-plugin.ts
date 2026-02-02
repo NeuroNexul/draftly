@@ -44,13 +44,20 @@ const headingLineDecorations = {
 export class HeadingPlugin extends DecorationPlugin {
   readonly name = "heading";
   readonly version = "1.0.0";
-  readonly theme = theme;
+  override decorationPriority = 10;
 
   /**
-   * Higher priority to ensure headings are styled first
+   * Constructor - calls super constructor
    */
-  override get decorationPriority(): number {
-    return 10;
+  constructor() {
+    super();
+  }
+
+  /**
+   * Plugin theme
+   */
+  override get theme() {
+    return theme;
   }
 
   /**

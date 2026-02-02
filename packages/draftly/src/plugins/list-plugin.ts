@@ -20,7 +20,7 @@ export class TaskCheckboxWidget extends WidgetType {
     super();
   }
 
-  eq(other: TaskCheckboxWidget): boolean {
+  override eq(other: TaskCheckboxWidget): boolean {
     return other.checked === this.checked;
   }
 
@@ -58,7 +58,7 @@ export class TaskCheckboxWidget extends WidgetType {
     return wrap;
   }
 
-  ignoreEvent(): boolean {
+  override ignoreEvent(): boolean {
     return false;
   }
 }
@@ -74,13 +74,17 @@ export class TaskCheckboxWidget extends WidgetType {
 export class ListPlugin extends DecorationPlugin {
   readonly name = "list";
   readonly version = "1.0.0";
-  readonly theme = theme;
+  override decorationPriority = 20;
+
+  constructor() {
+    super();
+  }
 
   /**
-   * Moderate priority
+   * Plugin theme
    */
-  override get decorationPriority(): number {
-    return 20;
+  override get theme() {
+    return theme;
   }
 
   /**

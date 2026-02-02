@@ -42,13 +42,17 @@ const inlineMarkDecorations = {
 export class InlinePlugin extends DecorationPlugin {
   readonly name = "inline";
   readonly version = "1.0.0";
-  readonly theme = theme;
+  override decorationPriority = 20;
+
+  constructor() {
+    super();
+  }
 
   /**
-   * Moderate priority for inline styling
+   * Plugin theme
    */
-  override get decorationPriority(): number {
-    return 20;
+  override get theme() {
+    return theme;
   }
 
   /**
