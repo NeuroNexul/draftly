@@ -32,7 +32,7 @@ export default function Page() {
   const [contents, setContents] = useState<Content[]>([]);
   const [currentContent, setCurrentContent] = useState<number>(-1);
 
-  const [showCode, setShowCode] = useState(false);
+  const [mode, setMode] = useState<"live" | "view" | "code">("live");
   const [showNodes, setShowNodes] = useState(false);
   const [nodes, setNodes] = useState<DraftlyNode[]>([]);
 
@@ -147,7 +147,7 @@ export default function Page() {
         markdown: [],
         extensions: [],
         keymap: [],
-        disableViewPlugin: showCode,
+        disableViewPlugin: mode === "code",
         defaultKeybindings: true,
         history: true,
         indentWithTab: true,
@@ -159,7 +159,7 @@ export default function Page() {
           if (showNodes) setNodes(nodes);
         },
       }),
-    [theme, showCode, showNodes]
+    [theme, mode, showNodes]
   );
 
   if (isLoading) {
@@ -180,8 +180,8 @@ export default function Page() {
         devbarOpen={devbarOpen}
         setDevbarOpen={setDevbarOpen}
         saveStatus={saveStatus}
-        showCode={showCode}
-        setShowCode={setShowCode}
+        mode={mode}
+        setMode={setMode}
       />
 
       {/* Main */}
@@ -219,26 +219,32 @@ export default function Page() {
         {/* Editor */}
         <div className="flex-1 h-full border-r flex items-center justify-center">
           {currentContent !== -1 ? (
-            <CodeMirror
-              key={`draftly-editor-${showCode}`}
-              id={"draftly-editor"}
-              ref={editor}
-              autoFocus={false}
-              className={"h-full w-full"}
-              height="100%"
-              width="100%"
-              value={contents[currentContent]?.content}
-              onChange={(value) => handleContentChange(contents[currentContent]!.id, value)}
-              theme={theme?.includes("dark") ? githubDark : githubLight}
-              extensions={[...defaultExtensions]}
-              basicSetup={{
-                lineNumbers: showCode,
-                foldGutter: showCode,
-                highlightActiveLine: showCode,
-                highlightActiveLineGutter: showCode,
-                highlightSelectionMatches: showCode,
-              }}
-            />
+            mode === "view" ? (
+              <div className="h-full w-full p-4 overflow-auto">
+                <pre className="whitespace-pre-wrap">{contents[currentContent]?.content}</pre>
+              </div>
+            ) : (
+              <CodeMirror
+                key={`draftly-editor-${mode}`}
+                id={"draftly-editor"}
+                ref={editor}
+                autoFocus={false}
+                className={"h-full w-full"}
+                height="100%"
+                width="100%"
+                value={contents[currentContent]?.content}
+                onChange={(value) => handleContentChange(contents[currentContent]!.id, value)}
+                theme={theme?.includes("dark") ? githubDark : githubLight}
+                extensions={[...defaultExtensions]}
+                basicSetup={{
+                  lineNumbers: mode === "code",
+                  foldGutter: mode === "code",
+                  highlightActiveLine: mode === "code",
+                  highlightActiveLineGutter: mode === "code",
+                  highlightSelectionMatches: mode === "code",
+                }}
+              />
+            )
           ) : (
             <div className="w-full h-full flex flex-col items-center justify-center">
               <span className="text-muted-foreground font-mono whitespace-nowrap">No Content Selected</span>

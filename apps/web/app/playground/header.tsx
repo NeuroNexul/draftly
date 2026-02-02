@@ -1,8 +1,30 @@
 import { Button } from "@workspace/ui/components/button";
-import { Check, Loader2, PanelLeftCloseIcon, PanelLeftOpenIcon } from "lucide-react";
+import {
+  Check,
+  ChevronDown,
+  FilePenLineIcon,
+  FileTextIcon,
+  Loader2,
+  PanelLeftCloseIcon,
+  PanelLeftOpenIcon,
+  ScanTextIcon,
+} from "lucide-react";
 import React, { Dispatch, SetStateAction } from "react";
 import type { SaveStatus } from "./page";
 import { ThemeSwitcher } from "@/components/providers";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from "@workspace/ui/components/dropdown-menu";
+
+const modes = [
+  { value: "live", label: "Live", icon: FilePenLineIcon },
+  { value: "view", label: "View", icon: FileTextIcon },
+  { value: "code", label: "Code", icon: ScanTextIcon },
+] as const;
 
 type Props = {
   sidebarOpen: boolean;
@@ -10,8 +32,8 @@ type Props = {
   devbarOpen: boolean;
   setDevbarOpen: Dispatch<SetStateAction<boolean>>;
   saveStatus: SaveStatus;
-  showCode: boolean;
-  setShowCode: Dispatch<SetStateAction<boolean>>;
+  mode: "live" | "view" | "code";
+  setMode: Dispatch<SetStateAction<"live" | "view" | "code">>;
 };
 
 export default function Header({
@@ -20,8 +42,8 @@ export default function Header({
   devbarOpen,
   setDevbarOpen,
   saveStatus,
-  showCode,
-  setShowCode,
+  mode,
+  setMode,
 }: Props) {
   return (
     <header className="h-12 w-full border-b flex items-center justify-between py-1 px-4 overflow-y-auto">
@@ -48,11 +70,33 @@ export default function Header({
           </div>
         )}
         <ThemeSwitcher />
-        <Button variant="outline" size="sm" onClick={() => setShowCode(!showCode)}>
-          Toggle Code
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm">
+              {(function () {
+                const Icon = modes.find((option) => option.value === mode)?.icon;
+                if (!Icon) return null;
+                return <Icon className="size-4" />;
+              })()}
+              <span>{modes.find((option) => option.value === mode)?.label}</span>
+              <ChevronDown className="size-4 ml-auto" />
+              <span className="sr-only">Toggle theme</span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            <DropdownMenuLabel>Select Mode</DropdownMenuLabel>
+            {modes.map((option) => (
+              <DropdownMenuItem key={option.value} onClick={() => setMode(option.value)}>
+                <option.icon className="size-4" />
+                <span>{option.label}</span>
+                {mode === option.value && <Check className="size-4 ml-auto" />}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
         <Button variant="outline" size="sm" onClick={() => setDevbarOpen(!devbarOpen)}>
-          Toggle Devbar
+          {devbarOpen ? <PanelLeftCloseIcon className="size-4" /> : <PanelLeftOpenIcon className="size-4" />}
+          <span>{devbarOpen ? "Hide Devbar" : "Show Devbar"}</span>
         </Button>
       </div>
     </header>
