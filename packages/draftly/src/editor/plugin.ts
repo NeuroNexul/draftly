@@ -186,18 +186,6 @@ export abstract class DraftlyPlugin {
   }
 
   // ============================================
-  // VIEW CONTRIBUTIONS (overridable by subclasses)
-  // ============================================
-
-  /**
-   * Return widget types this plugin provides
-   * Override to contribute custom widgets
-   */
-  getWidgets(): WidgetType[] {
-    return [];
-  }
-
-  // ============================================
   // PROTECTED UTILITIES (for subclasses)
   // ============================================
 
