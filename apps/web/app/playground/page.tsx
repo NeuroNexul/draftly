@@ -15,7 +15,7 @@ import { Content } from "./types";
 
 import CodeMirror, { Extension, ReactCodeMirrorRef } from "@uiw/react-codemirror";
 import { githubDark, githubLight } from "@uiw/codemirror-theme-github";
-import { draftly, DraftlyNode } from "draftly/editor";
+import { draftly, DraftlyNode, ThemeEnum } from "draftly/editor";
 import { allPlugins } from "draftly/plugins";
 
 const STORAGE_KEY = "draftly-playground-contents";
@@ -140,7 +140,8 @@ export default function Page() {
   const defaultExtensions = useMemo<Extension[]>(
     () =>
       draftly({
-        theme: theme && theme !== "system" ? (theme.includes("dark") ? "dark" : "light") : "auto",
+        theme:
+          theme && theme !== "system" ? (theme.includes("dark") ? ThemeEnum.DARK : ThemeEnum.LIGHT) : ThemeEnum.AUTO,
         baseStyles: true,
         plugins: allPlugins,
         markdown: [],
