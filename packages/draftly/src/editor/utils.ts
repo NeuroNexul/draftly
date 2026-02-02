@@ -2,6 +2,30 @@ import { EditorView } from "@codemirror/view";
 import { StyleSpec } from "style-mod";
 
 /**
+ * Deep merge two objects
+ * @param a - First object
+ * @param b - Second object
+ * @returns Merged object
+ */
+export function deepMerge<T>(a: T, b?: T): T {
+  const result = { ...a };
+
+  if (!b) {
+    return result;
+  }
+
+  for (const key in b as T) {
+    if (b[key] && typeof b[key] === "object" && !Array.isArray(b[key]) && typeof a[key] === "object") {
+      result[key] = deepMerge(a[key], b[key]);
+    } else {
+      result[key] = b[key];
+    }
+  }
+
+  return result;
+}
+
+/**
  * Theme style
  */
 export type ThemeStyle = {
@@ -38,11 +62,11 @@ export function createTheme({
     let style: ThemeStyle = defaultTheme;
 
     if (theme === ThemeEnum.DARK) {
-      style = { ...style, ...darkTheme };
+      style = deepMerge(style, darkTheme);
     }
 
     if (theme === ThemeEnum.LIGHT) {
-      style = { ...style, ...lightTheme };
+      style = deepMerge(style, lightTheme);
     }
 
     return style;
