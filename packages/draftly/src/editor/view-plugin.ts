@@ -1,7 +1,7 @@
 import { Decoration, DecorationSet, EditorView, ViewPlugin, ViewUpdate } from "@codemirror/view";
 import { Extension, Facet, Range, RangeSetBuilder } from "@codemirror/state";
 import { syntaxTree } from "@codemirror/language";
-import { cursorInRange, selectionOverlapsRange } from "./utils";
+import { cursorInRange, selectionOverlapsRange, ThemeEnum } from "./utils";
 import { draftlyBaseTheme } from "./theme";
 import { DecorationContext, DraftlyPlugin } from "./plugin";
 import { DraftlyNode } from "./draftly";
@@ -64,8 +64,8 @@ export const draftlyOnNodesChangeFacet = Facet.define<
 /**
  * Facet to register the theme
  */
-export const draftlyThemeFacet = Facet.define<"dark" | "light" | "auto", "dark" | "light" | "auto">({
-  combine: (values) => values.find((v) => v !== undefined) || "auto",
+export const draftlyThemeFacet = Facet.define<ThemeEnum, ThemeEnum>({
+  combine: (values) => values.find((v) => v !== undefined) || ThemeEnum.AUTO,
 });
 
 /**
@@ -204,7 +204,7 @@ function buildDecorations(view: EditorView, plugins: DraftlyPlugin[] = []): Deco
 class draftlyViewPluginClass {
   decorations: DecorationSet;
   private plugins: DraftlyPlugin[];
-  private onNodesChange?: (nodes: DraftlyNode[]) => void;
+  private onNodesChange: ((nodes: DraftlyNode[]) => void) | undefined;
 
   constructor(view: EditorView) {
     this.plugins = view.state.facet(DraftlyPluginsFacet);
@@ -217,7 +217,7 @@ class draftlyViewPluginClass {
     }
 
     // Call onNodesChange callback with initial nodes
-    if (this.onNodesChange) {
+    if (this.onNodesChange && typeof this.onNodesChange === "function") {
       this.onNodesChange(this.buildNodes(view));
     }
   }
@@ -298,7 +298,7 @@ const draftlyEditorClass = EditorView.editorAttributes.of({ class: "cm-draftly" 
  * @returns Extension array including view plugin, theme, and plugin facet
  */
 export function createDraftlyViewExtension(
-  theme: "dark" | "light" | "auto" = "auto",
+  theme: ThemeEnum = ThemeEnum.AUTO,
   baseStyles: boolean = true,
   plugins: DraftlyPlugin[] = [],
   onNodesChange?: (nodes: DraftlyNode[]) => void

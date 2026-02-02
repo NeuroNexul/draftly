@@ -14,6 +14,7 @@ import { createDraftlyViewExtension } from "./view-plugin";
 import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
 import { indentOnInput } from "@codemirror/language";
 import { languages } from "@codemirror/language-data";
+import { ThemeEnum } from "./utils";
 
 /**
  * DraftlyNode: represents a node in the markdown tree
@@ -33,7 +34,7 @@ export type DraftlyNode = {
  */
 export interface DraftlyConfig {
   /** Theme */
-  theme?: "light" | "dark" | "auto";
+  theme?: ThemeEnum;
 
   /** Weather to load base styles */
   baseStyles?: boolean;
@@ -101,7 +102,7 @@ export interface DraftlyConfig {
  */
 export function draftly(config: DraftlyConfig = {}): Extension[] {
   const {
-    theme: configTheme = "auto",
+    theme: configTheme = ThemeEnum.AUTO,
     baseStyles = true,
     plugins = [],
     extensions = [],

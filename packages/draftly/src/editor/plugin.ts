@@ -1,4 +1,4 @@
-import { Decoration, EditorView, KeyBinding, ViewUpdate, WidgetType } from "@codemirror/view";
+import { Decoration, EditorView, KeyBinding, ViewUpdate } from "@codemirror/view";
 import { Extension, Range } from "@codemirror/state";
 import { MarkdownConfig } from "@lezer/markdown";
 import { DraftlyConfig } from "./draftly";
