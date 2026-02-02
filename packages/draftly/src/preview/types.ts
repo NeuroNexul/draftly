@@ -28,6 +28,9 @@ export interface PreviewConfig {
   /** Plugins to use for rendering */
   plugins?: import("../editor/plugin").DraftlyPlugin[];
 
+  /** Markdown extensions to use for rendering */
+  markdown?: import("@lezer/markdown").MarkdownConfig[];
+
   /** CSS class for the wrapper element */
   wrapperClass?: string;
 

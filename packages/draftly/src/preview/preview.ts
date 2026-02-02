@@ -23,6 +23,7 @@ import { PreviewConfig } from "./types";
 export function preview(markdown: string, config: PreviewConfig = {}): string {
   const {
     plugins = [],
+    markdown: markdownConfig = [],
     wrapperClass = "draftly-preview",
     wrapperTag = "article",
     sanitize = true,
@@ -30,7 +31,7 @@ export function preview(markdown: string, config: PreviewConfig = {}): string {
   } = config;
 
   // Create renderer and generate HTML
-  const renderer = new PreviewRenderer(markdown, plugins, theme, sanitize);
+  const renderer = new PreviewRenderer(markdown, plugins, markdownConfig, theme, sanitize);
   const content = renderer.render();
 
   // Wrap in container

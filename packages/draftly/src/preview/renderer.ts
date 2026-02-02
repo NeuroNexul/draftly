@@ -1,10 +1,12 @@
 import { SyntaxNode } from "@lezer/common";
-import { parser as markdownParser } from "@lezer/markdown";
+import { Emoji, GFM, MarkdownConfig, parser as markdownParser, Subscript, Superscript } from "@lezer/markdown";
+
 import { DraftlyPlugin } from "../editor/plugin";
 import { ThemeEnum } from "../editor/utils";
 import { createPreviewContext } from "./context";
 import { defaultRenderers, escapeHtml } from "./default-renderers";
 import { NodeRendererMap, PreviewContext } from "./types";
+import { foldNodeProp } from "@codemirror/language";
 
 /**
  * Renderer class that walks the syntax tree and produces HTML
@@ -13,14 +15,22 @@ export class PreviewRenderer {
   private doc: string;
   private theme: ThemeEnum;
   private plugins: DraftlyPlugin[];
+  private markdown: MarkdownConfig[];
   private sanitizeHtml: boolean;
   private renderers: NodeRendererMap;
   private ctx: PreviewContext;
 
-  constructor(doc: string, plugins: DraftlyPlugin[] = [], theme: ThemeEnum = ThemeEnum.AUTO, sanitize: boolean = true) {
+  constructor(
+    doc: string,
+    plugins: DraftlyPlugin[] = [],
+    markdown: MarkdownConfig[],
+    theme: ThemeEnum = ThemeEnum.AUTO,
+    sanitize: boolean = true
+  ) {
     this.doc = doc;
     this.theme = theme;
     this.plugins = plugins;
+    this.markdown = markdown;
     this.sanitizeHtml = sanitize;
     this.renderers = { ...defaultRenderers };
 
@@ -33,12 +43,27 @@ export class PreviewRenderer {
    */
   render(): string {
     // Collect markdown extensions from plugins
-    const extensions = this.plugins
-      .map((p) => p.getMarkdownConfig())
-      .filter((ext): ext is NonNullable<typeof ext> => ext !== null);
+    const extensions = [
+      ...this.markdown,
+      ...this.plugins.map((p) => p.getMarkdownConfig()).filter((ext): ext is NonNullable<typeof ext> => ext !== null),
+    ];
 
-    // Create parser with extensions
-    const parser = extensions.length > 0 ? markdownParser.configure(extensions) : markdownParser;
+    // Use GFM extensions to match the editor (markdownLanguage includes GFM by default)
+    // GFM includes: Table, TaskList, Strikethrough, Autolink
+    const baseParser = markdownParser.configure([
+      GFM,
+      Subscript,
+      Superscript,
+      Emoji,
+      {
+        props: [
+          foldNodeProp.add({
+            Table: (tree, state) => ({ from: state.doc.lineAt(tree.from).to, to: tree.to }),
+          }),
+        ],
+      },
+    ]);
+    const parser = extensions.length > 0 ? baseParser.configure(extensions) : baseParser;
 
     // Parse the document
     const tree = parser.parse(this.doc);
