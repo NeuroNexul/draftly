@@ -169,6 +169,7 @@ export default function Page() {
     const html = preview(contents[currentContent]?.content || "", {
       theme: theme && theme !== "system" ? (theme.includes("dark") ? ThemeEnum.DARK : ThemeEnum.LIGHT) : ThemeEnum.AUTO,
       plugins: allPlugins,
+      markdown: [],
       sanitize: true,
       wrapperTag: "div",
       wrapperClass: "draftly-preview h-full w-full max-w-[48rem] mx-auto overflow-auto",
