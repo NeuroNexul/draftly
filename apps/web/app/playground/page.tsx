@@ -17,6 +17,7 @@ import CodeMirror, { Extension, ReactCodeMirrorRef } from "@uiw/react-codemirror
 import { githubDark, githubLight } from "@uiw/codemirror-theme-github";
 import { draftly, DraftlyNode, ThemeEnum } from "draftly/editor";
 import { allPlugins } from "draftly/plugins";
+import { generateCSS, preview } from "draftly/preview";
 
 const STORAGE_KEY = "draftly-playground-contents";
 const STORAGE_CURRENT_KEY = "draftly-playground-current";
@@ -162,6 +163,27 @@ export default function Page() {
     [theme, mode, showNodes]
   );
 
+  const content = useMemo(() => {
+    if (currentContent === -1) return { html: "", css: "" };
+
+    const html = preview(contents[currentContent]?.content || "", {
+      theme: theme && theme !== "system" ? (theme.includes("dark") ? ThemeEnum.DARK : ThemeEnum.LIGHT) : ThemeEnum.AUTO,
+      plugins: allPlugins,
+      sanitize: true,
+      wrapperTag: "div",
+      wrapperClass: "draftly-preview h-full w-full max-w-[48rem] mx-auto overflow-auto",
+    });
+
+    const css = generateCSS({
+      theme: theme && theme !== "system" ? (theme.includes("dark") ? ThemeEnum.DARK : ThemeEnum.LIGHT) : ThemeEnum.AUTO,
+      plugins: allPlugins,
+      wrapperClass: "draftly-preview",
+      includeBase: true,
+    });
+
+    return { html, css };
+  }, [currentContent, contents, theme]);
+
   if (isLoading) {
     return (
       <div className="min-h-svh h-svh flex flex-col items-center justify-center gap-3">
@@ -220,8 +242,9 @@ export default function Page() {
         <div className="flex-1 h-full border-r flex items-center justify-center">
           {currentContent !== -1 ? (
             mode === "view" ? (
-              <div className="h-full w-full p-4 overflow-auto">
-                <pre className="whitespace-pre-wrap">{contents[currentContent]?.content}</pre>
+              <div className="h-full w-full overflow-auto">
+                <style dangerouslySetInnerHTML={{ __html: content.css }} />
+                <div dangerouslySetInnerHTML={{ __html: content.html }} />
               </div>
             ) : (
               <CodeMirror
