@@ -52,12 +52,8 @@ export abstract class DraftlyPlugin {
   /** Plugin version (abstract - must be implemented) */
   abstract readonly version: string;
 
-  /** Private theme storage */
-  readonly theme: (theme: ThemeEnum) => ThemeStyle = createTheme({
-    default: {},
-    dark: {},
-    light: {},
-  });
+  /** Decoration priority (higher = applied later) */
+  readonly decorationPriority: number = 100;
 
   /** Plugin dependencies - names of required plugins */
   readonly dependencies: string[] = [];
@@ -81,6 +77,15 @@ export abstract class DraftlyPlugin {
   /** Get plugin context */
   get context(): PluginContext | null {
     return this._context;
+  }
+
+  /** Plugin theme */
+  get theme(): (theme: ThemeEnum) => ThemeStyle {
+    return createTheme({
+      default: {},
+      dark: {},
+      light: {},
+    });
   }
 
   // ============================================
@@ -114,14 +119,6 @@ export abstract class DraftlyPlugin {
   // ============================================
   // DECORATION METHODS (overridable by subclasses)
   // ============================================
-
-  /**
-   * Decoration priority (higher = applied later)
-   * Override to customize priority. Default: 100
-   */
-  get decorationPriority(): number {
-    return 100;
-  }
 
   /**
    * Build decorations for the current view state
@@ -230,9 +227,7 @@ export abstract class DecorationPlugin extends DraftlyPlugin {
    * Decoration priority - lower than default for decoration plugins
    * Override to customize
    */
-  override get decorationPriority(): number {
-    return 50;
-  }
+  override decorationPriority = 50;
 
   /**
    * Subclasses must implement this to provide decorations
