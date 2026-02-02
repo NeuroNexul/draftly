@@ -58,7 +58,7 @@ export class InlinePlugin extends DecorationPlugin {
   /**
    * Build inline decorations by iterating the syntax tree
    */
-  override buildDecorations(ctx: DecorationContext): void {
+  buildDecorations(ctx: DecorationContext): void {
     const { view, decorations } = ctx;
     const tree = syntaxTree(view.state);
 
