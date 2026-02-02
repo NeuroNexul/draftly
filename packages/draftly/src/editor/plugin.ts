@@ -1,8 +1,10 @@
 import { Decoration, EditorView, KeyBinding, ViewUpdate } from "@codemirror/view";
 import { Extension, Range } from "@codemirror/state";
 import { MarkdownConfig } from "@lezer/markdown";
+import { SyntaxNode } from "@lezer/common";
 import { DraftlyConfig } from "./draftly";
 import { createTheme, ThemeEnum, ThemeStyle } from "./utils";
+import { StyleModule } from "style-mod";
 
 /**
  * Context passed to plugin lifecycle methods
@@ -191,6 +193,50 @@ export abstract class DraftlyPlugin {
    */
   protected getDocument(view: EditorView) {
     return view.state.doc;
+  }
+
+  // ============================================
+  // PREVIEW RENDERING METHODS (for draftly/preview)
+  // ============================================
+
+  /**
+   * Render a syntax node to HTML for preview mode
+   * Override to provide custom HTML rendering for specific node types
+   *
+   * @param node - The syntax node to render
+   * @param children - Pre-rendered children HTML
+   * @param ctx - Preview context with document and utilities
+   * @returns HTML string to use, or null to use default rendering
+   */
+  renderToHTML?(
+    node: SyntaxNode,
+    children: string,
+    ctx: { sliceDoc(from: number, to: number): string; sanitize(html: string): string }
+  ): string | null;
+
+  /**
+   * Get CSS styles for preview mode
+   * Override to provide custom CSS for preview rendering
+   *
+   * @param theme - Current theme enum
+   * @returns CSS string for preview styles
+   */
+  getPreviewStyles(theme: ThemeEnum, wrapperClass: string): string {
+    const themeStyles = this.theme(theme);
+    return this.transformToCss(themeStyles, wrapperClass);
+  }
+
+  /**
+   * Transform ThemeStyle object to CSS string for preview
+   * Uses cssClassMap to convert CM selectors to semantic selectors
+   */
+  protected transformToCss(themeStyles: ThemeStyle, wrapperClass: string): string {
+    const styleMod = new StyleModule(themeStyles, {
+      finish: (sel) => {
+        return `.${wrapperClass} ${sel}`;
+      },
+    });
+    return styleMod.getRules();
   }
 }
 
