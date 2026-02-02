@@ -2,7 +2,7 @@ import { Decoration, EditorView, KeyBinding, ViewUpdate, WidgetType } from "@cod
 import { Extension, Range } from "@codemirror/state";
 import { MarkdownConfig } from "@lezer/markdown";
 import { DraftlyConfig } from "./draftly";
-import { StyleSpec } from "style-mod";
+import { createTheme, ThemeEnum, ThemeStyle } from "./utils";
 
 /**
  * Context passed to plugin lifecycle methods
@@ -38,45 +38,6 @@ export interface DecorationContext {
 }
 
 /**
- * Theme style
- */
-export type ThemeStyle = {
-  [selector: string]: StyleSpec;
-};
-
-/**
- * Function to create the themes
- *
- * @param defaultTheme - Default theme -- Always applied
- * @param darkTheme - Dark theme -- Applied when theme is "dark" or "auto" and system is dark
- * @param lightTheme - Light theme -- Applied when theme is "light" or "auto" and system is light
- * @returns Theme function
- */
-export function createTheme({
-  default: defaultTheme,
-  dark: darkTheme,
-  light: lightTheme,
-}: {
-  default: ThemeStyle;
-  dark?: ThemeStyle;
-  light?: ThemeStyle;
-}): (theme: "dark" | "light" | "auto") => ThemeStyle {
-  return (theme: "dark" | "light" | "auto") => {
-    let style = defaultTheme;
-
-    if (theme === "dark") {
-      style = { ...style, ...darkTheme };
-    }
-
-    if (theme === "light") {
-      style = { ...style, ...lightTheme };
-    }
-
-    return style;
-  };
-}
-
-/**
  * Abstract base class for all draftly plugins
  *
  * Implements OOP principles:
@@ -92,7 +53,7 @@ export abstract class DraftlyPlugin {
   abstract readonly version: string;
 
   /** Private theme storage */
-  readonly theme: (theme: "dark" | "light" | "auto") => ThemeStyle = createTheme({
+  readonly theme: (theme: ThemeEnum) => ThemeStyle = createTheme({
     default: {},
     dark: {},
     light: {},

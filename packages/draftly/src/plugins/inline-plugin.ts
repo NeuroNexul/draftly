@@ -1,6 +1,7 @@
 import { Decoration } from "@codemirror/view";
 import { syntaxTree } from "@codemirror/language";
-import { createTheme, DecorationContext, DecorationPlugin } from "../editor/plugin";
+import { DecorationContext, DecorationPlugin } from "../editor/plugin";
+import { createTheme } from "../editor";
 
 /**
  * Node types for inline styling in markdown

@@ -1,4 +1,53 @@
 import { EditorView } from "@codemirror/view";
+import { StyleSpec } from "style-mod";
+
+/**
+ * Theme style
+ */
+export type ThemeStyle = {
+  [selector: string]: StyleSpec;
+};
+
+/**
+ * Theme Enum
+ */
+export enum ThemeEnum {
+  DARK = "dark",
+  LIGHT = "light",
+  AUTO = "auto",
+}
+
+/**
+ * Function to create the themes
+ *
+ * @param defaultTheme - Default theme -- Always applied
+ * @param darkTheme - Dark theme -- Applied when theme is "dark" or "auto" and system is dark
+ * @param lightTheme - Light theme -- Applied when theme is "light" or "auto" and system is light
+ * @returns Theme function
+ */
+export function createTheme({
+  default: defaultTheme,
+  dark: darkTheme,
+  light: lightTheme,
+}: {
+  default: ThemeStyle;
+  dark?: ThemeStyle;
+  light?: ThemeStyle;
+}): (theme: ThemeEnum) => ThemeStyle {
+  return (theme: ThemeEnum) => {
+    let style: ThemeStyle = defaultTheme;
+
+    if (theme === ThemeEnum.DARK) {
+      style = { ...style, ...darkTheme };
+    }
+
+    if (theme === ThemeEnum.LIGHT) {
+      style = { ...style, ...lightTheme };
+    }
+
+    return style;
+  };
+}
 
 /**
  * Check if cursor is within the given range
