@@ -174,18 +174,6 @@ export abstract class DraftlyPlugin {
   }
 
   // ============================================
-  // ACCESSIBILITY METHODS (overridable by subclasses)
-  // ============================================
-
-  /**
-   * Return ARIA attributes to add to the editor
-   * Override to improve accessibility
-   */
-  getAriaAttributes(): Record<string, string> {
-    return {};
-  }
-
-  // ============================================
   // PROTECTED UTILITIES (for subclasses)
   // ============================================
 
