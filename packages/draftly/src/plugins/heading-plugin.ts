@@ -2,6 +2,7 @@ import { Decoration } from "@codemirror/view";
 import { syntaxTree } from "@codemirror/language";
 import { DecorationContext, DecorationPlugin } from "../editor/plugin";
 import { createTheme } from "../editor";
+import { SyntaxNode } from "@lezer/common";
 
 /**
  * Node types for ATX headings in markdown
@@ -97,6 +98,24 @@ export class HeadingPlugin extends DecorationPlugin {
         }
       },
     });
+  }
+
+  override renderToHTML(node: SyntaxNode, children: string): string | null {
+    if (node.name === "HeaderMark") {
+      return "";
+    }
+
+    if (!HEADING_TYPES.includes(node.name)) {
+      return null;
+    }
+
+    const level = parseInt(node.name.slice(-1), 10);
+    const lineClass = headingLineDecorations[`heading-${level}` as keyof typeof headingLineDecorations].spec.class;
+    const headingClass = headingMarkDecorations[`heading-${level}` as keyof typeof headingMarkDecorations].spec.class;
+
+    return `<div class="${lineClass}">
+      <h${level} class="${headingClass}">${children}</h${level}>
+    </div>\n`;
   }
 }
 

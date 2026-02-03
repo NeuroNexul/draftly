@@ -2,6 +2,7 @@ import { Decoration } from "@codemirror/view";
 import { syntaxTree } from "@codemirror/language";
 import { DecorationContext, DecorationPlugin } from "../editor/plugin";
 import { createTheme } from "../editor";
+import { SyntaxNode } from "@lezer/common";
 
 /**
  * Node types for inline styling in markdown
@@ -43,9 +44,14 @@ export class InlinePlugin extends DecorationPlugin {
   readonly name = "inline";
   readonly version = "1.0.0";
   override decorationPriority = 20;
+  marks: string[] = [];
 
   constructor() {
     super();
+
+    for (const mark of Object.keys(INLINE_TYPES)) {
+      this.marks.push(...this.getMarkerNames(mark));
+    }
   }
 
   /**
@@ -108,6 +114,20 @@ export class InlinePlugin extends DecorationPlugin {
       default:
         return [];
     }
+  }
+
+  override renderToHTML(node: SyntaxNode, children: string): string | null {
+    if (this.marks.includes(node.name)) {
+      return "";
+    }
+
+    const inlineType = INLINE_TYPES[node.name as keyof typeof INLINE_TYPES];
+    if (!inlineType) {
+      return null;
+    }
+    const className = inlineMarkDecorations[inlineType].spec.class as string;
+
+    return `<span class="${className}">${children}</span>`;
   }
 }
 
