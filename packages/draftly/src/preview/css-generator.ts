@@ -42,14 +42,7 @@ export function generateCSS(config: GenerateCSSConfig = {}): string {
   // Collect styles from plugins
   for (const plugin of plugins) {
     const pluginCSS = plugin.getPreviewStyles(theme, wrapperClass);
-    if (pluginCSS) {
-      // Replace wrapper class if custom one is provided
-      if (wrapperClass !== "draftly-preview") {
-        cssChunks.push(pluginCSS.replace(/\.draftly-preview/g, `.${wrapperClass}`));
-      } else {
-        cssChunks.push(pluginCSS);
-      }
-    }
+    if (pluginCSS) cssChunks.push(`/* ${plugin.name} - ${plugin.version} */\n` + pluginCSS);
   }
 
   return cssChunks.join("\n\n");
