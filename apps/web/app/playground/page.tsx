@@ -13,9 +13,11 @@ import Devbar from "./devbar";
 import Sidebar from "./sidebar";
 import { Content } from "./types";
 
-import CodeMirror, { Extension, ReactCodeMirrorRef } from "@uiw/react-codemirror";
+import CodeMirror, { EditorView, Extension, ReactCodeMirrorRef } from "@uiw/react-codemirror";
 import { githubDark, githubLight } from "@uiw/codemirror-theme-github";
 import { draftly, DraftlyNode, ThemeEnum } from "draftly/editor";
+import { html } from "@codemirror/lang-html";
+import { css } from "@codemirror/lang-css";
 import { allPlugins } from "draftly/plugins";
 import { generateCSS, preview } from "draftly/preview";
 
@@ -33,7 +35,7 @@ export default function Page() {
   const [contents, setContents] = useState<Content[]>([]);
   const [currentContent, setCurrentContent] = useState<number>(-1);
 
-  const [mode, setMode] = useState<"live" | "view" | "code">("live");
+  const [mode, setMode] = useState<"live" | "view" | "code" | "output">("live");
   const [showNodes, setShowNodes] = useState(false);
   const [nodes, setNodes] = useState<DraftlyNode[]>([]);
 
@@ -164,7 +166,7 @@ export default function Page() {
   );
 
   const content = useMemo(() => {
-    if (currentContent === -1) return { html: "", css: "" };
+    if (currentContent === -1 || !["view", "output"].includes(mode)) return { html: "", css: "" };
 
     const html = preview(contents[currentContent]?.content || "", {
       theme: theme && theme !== "system" ? (theme.includes("dark") ? ThemeEnum.DARK : ThemeEnum.LIGHT) : ThemeEnum.AUTO,
@@ -183,7 +185,7 @@ export default function Page() {
     });
 
     return { html, css };
-  }, [currentContent, contents, theme]);
+  }, [currentContent, contents, theme, mode]);
 
   if (isLoading) {
     return (
@@ -246,6 +248,45 @@ export default function Page() {
               <div className="h-full w-full overflow-auto">
                 <style dangerouslySetInnerHTML={{ __html: content.css }} />
                 <div dangerouslySetInnerHTML={{ __html: content.html }} />
+              </div>
+            ) : mode === "output" ? (
+              <div className="h-full w-full">
+                <div className="h-full w-full grid grid-rows-2 gap-2">
+                  <div className="h-full w-full flex flex-col gap-2">
+                    <CodeMirror
+                      key={`draftly-output-${mode}`}
+                      id={"draftly-output"}
+                      autoFocus={false}
+                      className={"h-full w-full"}
+                      height="100%"
+                      width="100%"
+                      value={content.html}
+                      theme={theme?.includes("dark") ? githubDark : githubLight}
+                      extensions={[html(), css(), EditorView.lineWrapping]}
+                      readOnly
+                      autoCorrect="off"
+                      autoCapitalize="off"
+                      spellCheck="false"
+                    />
+                  </div>
+                  <div className="h-full w-full flex flex-col gap-2">
+                    <CodeMirror
+                      key={`draftly-output-${mode}`}
+                      id={"draftly-output"}
+                      autoFocus={false}
+                      className={"h-full w-full"}
+                      height="100%"
+                      width="100%"
+                      value={content.css}
+                      theme={theme?.includes("dark") ? githubDark : githubLight}
+                      extensions={[css(), EditorView.lineWrapping]}
+                      readOnly
+                      autoCorrect="off"
+                      autoCapitalize="off"
+                      spellCheck="false"
+                    />
+                  </div>
+                </div>
               </div>
             ) : (
               <CodeMirror

@@ -2,6 +2,7 @@ import { Button } from "@workspace/ui/components/button";
 import {
   Check,
   ChevronDown,
+  FileCodeCornerIcon,
   FilePenLineIcon,
   FileTextIcon,
   Loader2,
@@ -24,6 +25,7 @@ const modes = [
   { value: "live", label: "Live", icon: FilePenLineIcon },
   { value: "view", label: "View", icon: FileTextIcon },
   { value: "code", label: "Code", icon: ScanTextIcon },
+  { value: "output", label: "Output", icon: FileCodeCornerIcon },
 ] as const;
 
 type Props = {
@@ -32,8 +34,8 @@ type Props = {
   devbarOpen: boolean;
   setDevbarOpen: Dispatch<SetStateAction<boolean>>;
   saveStatus: SaveStatus;
-  mode: "live" | "view" | "code";
-  setMode: Dispatch<SetStateAction<"live" | "view" | "code">>;
+  mode: "live" | "view" | "code" | "output";
+  setMode: Dispatch<SetStateAction<"live" | "view" | "code" | "output">>;
 };
 
 export default function Header({
