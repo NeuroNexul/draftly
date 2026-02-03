@@ -1,12 +1,5 @@
 import { Extension, Prec } from "@codemirror/state";
-import {
-  drawSelection,
-  EditorView,
-  highlightActiveLine,
-  KeyBinding,
-  keymap,
-  rectangularSelection,
-} from "@codemirror/view";
+import { drawSelection, EditorView, highlightActiveLine, KeyBinding, keymap } from "@codemirror/view";
 import { markdown, markdownKeymap, markdownLanguage } from "@codemirror/lang-markdown";
 import type { MarkdownConfig } from "@lezer/markdown";
 import { DraftlyPlugin, PluginContext } from "./plugin";
@@ -69,9 +62,6 @@ export interface DraftlyConfig {
   /** Highlight active line */
   highlightActiveLine?: boolean;
 
-  /** Rectangular selection */
-  rectangularSelection?: boolean;
-
   /** Line wrapping in raw markdown mode */
   lineWrapping?: boolean;
 
@@ -113,7 +103,6 @@ export function draftly(config: DraftlyConfig = {}): Extension[] {
     indentWithTab: configIndentWithTab = true,
     drawSelection: configDrawSelection = true,
     highlightActiveLine: configHighlightActiveLine = true,
-    rectangularSelection: configRectangularSelection = true,
     lineWrapping: configLineWrapping = true,
     onNodesChange: configOnNodesChange = undefined,
   } = config;
@@ -179,7 +168,6 @@ export function draftly(config: DraftlyConfig = {}): Extension[] {
     ...(configIndentWithTab ? [indentOnInput(), keymap.of([indentWithTab])] : []),
     ...(configDrawSelection ? [drawSelection()] : []),
     ...(configHighlightActiveLine && disableViewPlugin ? [highlightActiveLine()] : []),
-    ...(configRectangularSelection ? [rectangularSelection()] : []),
   ];
 
   // draftly extensions (pass plugins for decoration support)

@@ -156,7 +156,6 @@ export default function Page() {
         indentWithTab: true,
         drawSelection: true,
         highlightActiveLine: true,
-        rectangularSelection: true,
         lineWrapping: true,
         onNodesChange: (nodes) => {
           if (showNodes) setNodes(nodes);
@@ -307,6 +306,8 @@ export default function Page() {
                   highlightActiveLine: mode === "code",
                   highlightActiveLineGutter: mode === "code",
                   highlightSelectionMatches: mode === "code",
+                  rectangularSelection: false,
+                  drawSelection: false,
                 }}
               />
             )
