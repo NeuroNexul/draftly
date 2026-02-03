@@ -2,18 +2,40 @@ import { Decoration, EditorView, WidgetType } from "@codemirror/view";
 import { syntaxTree } from "@codemirror/language";
 import { DecorationContext, DecorationPlugin } from "../editor/plugin";
 import { createTheme } from "../editor";
+import { Range } from "@codemirror/state";
+import { SyntaxNode } from "@lezer/common";
 
-/**
- * Mark decorations for list items
- */
-const listMarkDecorations = {
-  "list-mark-ul": Decoration.mark({ class: "cm-draftly-list-mark-ul" }),
-  "list-mark-ol": Decoration.mark({ class: "cm-draftly-list-mark-ol" }),
-  "task-marker": Decoration.mark({ class: "cm-draftly-task-marker" }),
+// ============================================================================
+// CSS Classes
+// ============================================================================
+
+const classes = {
+  // Unordered list classes
+  lineUL: "cm-draftly-list-line-ul",
+  markUL: "cm-draftly-list-mark-ul",
+
+  // Ordered list classes
+  lineOL: "cm-draftly-list-line-ol",
+  markOL: "cm-draftly-list-mark-ol",
+
+  // Task list classes
+  taskLine: "cm-draftly-task-line",
+  taskMarker: "cm-draftly-task-marker",
+
+  // Common classes
+  content: "cm-draftly-list-content",
+  indent: "cm-draftly-list-indent",
+  active: " cm-draftly-active",
+  preview: "cm-draftly-preview",
 };
 
+// ============================================================================
+// Checkbox Widget
+// ============================================================================
+
 /**
- * Task checkbox widget
+ * Interactive checkbox widget for task list items.
+ * Replaces `[ ]` or `[x]` markers with a clickable checkbox when not editing.
  */
 export class TaskCheckboxWidget extends WidgetType {
   constructor(readonly checked: boolean) {
@@ -36,60 +58,54 @@ export class TaskCheckboxWidget extends WidgetType {
 
     checkbox.addEventListener("mousedown", (e) => {
       e.preventDefault();
-      const pos = view.posAtDOM(wrap);
-      // Find the task marker in the document and toggle it
-      const line = view.state.doc.lineAt(pos);
-      const match = line.text.match(/^(\s*[-*+]\s*)\[([ xX])\]/);
-      if (match) {
-        const markerStart = line.from + match[1]!.length + 1;
-        const newChar = this.checked ? " " : "x";
-        view.dispatch({
-          changes: { from: markerStart, to: markerStart + 1, insert: newChar },
-        });
-      }
+      this.toggleCheckbox(view, wrap);
     });
 
     wrap.appendChild(checkbox);
-
-    // Add a label for better accessibility and click area
-    // const label = document.createElement("span");
-    // wrap.appendChild(label);
-
     return wrap;
   }
 
   override ignoreEvent(): boolean {
     return false;
   }
+
+  /** Toggle the checkbox state in the document */
+  private toggleCheckbox(view: EditorView, wrap: HTMLElement): void {
+    const pos = view.posAtDOM(wrap);
+    const line = view.state.doc.lineAt(pos);
+    const match = line.text.match(/^(\s*(?:[-*+]|\d+\.)\s*)\[([ xX])\]/);
+
+    if (match) {
+      const markerStart = line.from + match[1]!.length + 1;
+      const newChar = this.checked ? " " : "x";
+      view.dispatch({
+        changes: { from: markerStart, to: markerStart + 1, insert: newChar },
+      });
+    }
+  }
 }
 
+// ============================================================================
+// List Plugin
+// ============================================================================
+
 /**
- * ListPlugin - Decorates markdown lists
+ * Decorates markdown lists with custom styling.
  *
- * Handles:
- * - Unordered lists (bullet points) - Auto-styles markers (*, -, +)
- * - Ordered lists (numbered) - Auto-styles numbers (1., 2.)
- * - Task lists (checkboxes) - Replaces [ ]/[x] with interactive widget when not editing
+ * Supports:
+ * - **Unordered lists** — Replaces `*`, `-`, `+` markers with styled bullets
+ * - **Ordered lists** — Styles numbered markers (`1.`, `2.`, etc.)
+ * - **Task lists** — Renders `[ ]`/`[x]` as interactive checkboxes
  */
 export class ListPlugin extends DecorationPlugin {
   readonly name = "list";
   readonly version = "1.0.0";
   override decorationPriority = 20;
 
-  constructor() {
-    super();
-  }
-
-  /**
-   * Plugin theme
-   */
   override get theme() {
     return theme;
   }
 
-  /**
-   * Build list decorations by iterating the syntax tree
-   */
   buildDecorations(ctx: DecorationContext): void {
     const { view, decorations } = ctx;
     const tree = syntaxTree(view.state);
@@ -100,85 +116,213 @@ export class ListPlugin extends DecorationPlugin {
         const line = view.state.doc.lineAt(from);
         const cursorInLine = ctx.cursorInRange(line.from, line.to);
 
-        // Handle list markers (bullets, numbers)
-        if (name === "ListMark") {
-          // Determine list type by checking grandparent (BulletList vs OrderedList)
-          // Parent is ListItem, Grandparent is the list container
-          const parent = node.node.parent;
-          const grandparent = parent?.parent;
-          const listType = grandparent?.name;
+        switch (name) {
+          case "ListItem":
+            this.decorateListItem(node, line, decorations);
+            break;
 
-          if (!cursorInLine) {
-            if (listType === "OrderedList") {
-              decorations.push(listMarkDecorations["list-mark-ol"].range(from, to));
-            } else {
-              // Default to generic/unordered for BulletList or others
-              decorations.push(listMarkDecorations["list-mark-ul"].range(from, to));
-            }
-          }
-        }
+          case "ListMark":
+            this.decorateListMark(node, line, decorations, cursorInLine);
+            break;
 
-        // Handle task lists
-        if (name === "TaskMarker") {
-          const text = view.state.sliceDoc(from, to);
-          const isChecked = text.includes("x") || text.includes("X");
-
-          if (cursorInLine) {
-            // If editing the line, just style the marker text
-            decorations.push(listMarkDecorations["task-marker"].range(from, to));
-          } else {
-            // If not editing, REPLACE the marker text with the widget
-            decorations.push(
-              Decoration.replace({
-                widget: new TaskCheckboxWidget(isChecked),
-              }).range(from, to)
-            );
-          }
+          case "TaskMarker":
+            this.decorateTaskMarker(from, to, view, decorations, cursorInLine);
+            break;
         }
       },
     });
   }
+
+  /** Add line decoration for list items with nesting depth */
+  private decorateListItem(
+    node: Parameters<NonNullable<Parameters<ReturnType<typeof syntaxTree>["iterate"]>[0]["enter"]>>[0],
+    line: { from: number },
+    decorations: Range<Decoration>[]
+  ): void {
+    const parent = node.node.parent;
+    const listType = parent?.name;
+
+    // Calculate nesting depth
+    let depth = 0;
+    let ancestor = node.node.parent;
+    while (ancestor) {
+      if (ancestor.name === "ListItem") depth++;
+      ancestor = ancestor.parent;
+    }
+
+    // Check for task marker child
+    const hasTask = this.hasTaskChild(node);
+
+    // Determine line class based on list type
+    let lineClass: string;
+    if (hasTask) lineClass = classes.taskLine;
+    else if (listType === "OrderedList") lineClass = classes.lineOL;
+    else lineClass = classes.lineUL;
+
+    decorations.push(
+      Decoration.line({
+        class: lineClass,
+        attributes: { style: `--depth: ${depth}` },
+      }).range(line.from)
+    );
+  }
+
+  /** Check if a ListItem node has a Task child */
+  private hasTaskChild(
+    node: Parameters<NonNullable<Parameters<ReturnType<typeof syntaxTree>["iterate"]>[0]["enter"]>>[0]
+  ): boolean {
+    const cursor = node.node.cursor();
+    if (cursor.firstChild()) {
+      do {
+        if (cursor.name === "Task") return true;
+      } while (cursor.nextSibling());
+    }
+    return false;
+  }
+
+  /** Decorate list markers (bullets for UL, numbers for OL) */
+  private decorateListMark(
+    node: Parameters<NonNullable<Parameters<ReturnType<typeof syntaxTree>["iterate"]>[0]["enter"]>>[0],
+    line: { from: number; to: number },
+    decorations: Range<Decoration>[],
+    cursorInLine: boolean
+  ): void {
+    const { from, to } = node;
+    const parent = node.node.parent;
+    const grandparent = parent?.parent;
+    const listType = grandparent?.name;
+    const activeClass = cursorInLine ? classes.active : "";
+
+    // Add indent decoration for nested items
+    if (from > line.from) {
+      decorations.push(Decoration.mark({ class: classes.indent + activeClass }).range(line.from, from));
+    }
+
+    // Add marker decoration based on list type
+    const markClass = listType === "OrderedList" ? classes.markOL : classes.markUL;
+    decorations.push(Decoration.mark({ class: markClass + activeClass }).range(from, to + 1));
+
+    // Wrap remaining line content
+    const contentStart = to + 1;
+    if (contentStart < line.to) {
+      decorations.push(Decoration.mark({ class: classes.content }).range(contentStart, line.to));
+    }
+  }
+
+  /** Decorate task markers - show checkbox widget or raw text based on cursor */
+  private decorateTaskMarker(
+    from: number,
+    to: number,
+    view: EditorView,
+    decorations: Range<Decoration>[],
+    cursorInLine: boolean
+  ): void {
+    const text = view.state.sliceDoc(from, to);
+    const isChecked = text.includes("x") || text.includes("X");
+
+    if (cursorInLine) {
+      // Show raw marker when editing
+      decorations.push(Decoration.mark({ class: classes.taskMarker }).range(from, to));
+    } else {
+      // Replace with interactive checkbox
+      decorations.push(
+        Decoration.replace({
+          widget: new TaskCheckboxWidget(isChecked),
+        }).range(from, to)
+      );
+    }
+  }
+
+  /** Render list nodes to HTML */
+  override renderToHTML(
+    node: SyntaxNode,
+    children: string,
+    ctx: { sliceDoc(from: number, to: number): string; sanitize(html: string): string }
+  ): string | null {
+    switch (node.name) {
+      case "BulletList":
+        return `<ul class="${classes.lineUL} ${classes.preview}">${children}</ul>\n`;
+
+      case "OrderedList":
+        return `<ol class="${classes.lineOL} ${classes.preview}">${children}</ol>\n`;
+
+      case "ListItem":
+        return `<li>${children}</li>\n`;
+
+      case "Task":
+        return children;
+
+      case "TaskMarker": {
+        const text = ctx.sliceDoc(node.from, node.to);
+        const isChecked = text.includes("x") || text.includes("X");
+        return `<input type="checkbox" class="cm-draftly-task-checkbox" disabled ${isChecked ? "checked" : ""} />`;
+      }
+
+      case "ListMark":
+        return "";
+
+      default:
+        return null;
+    }
+  }
 }
 
-/**
- * Theme for list styling
- */
+// ============================================================================
+// Theme
+// ============================================================================
+
 const theme = createTheme({
   default: {
-    // Unordered List markers (*, -, +)
-    ".cm-draftly-list-mark-ul": {
-      position: "relative",
-    },
-
-    ".cm-draftly-list-mark-ul > span": {
-      visibility: "hidden",
-    },
-
-    ".cm-draftly-list-mark-ul::after": {
-      content: '"•"',
+    // Indentation marker positioning
+    ".cm-draftly-list-indent": {
+      overflow: "hidden",
+      display: "inline-block",
       position: "absolute",
-      left: "50%",
-      top: "50%",
-      transform: "translate(-50%, -50%)",
+      left: "calc(1rem * (var(--depth, 0) + 1))",
+      transform: "translateX(-100%)",
+    },
+
+    // List line layout (flexbox for marker alignment)
+    ".cm-draftly-list-line-ul, .cm-draftly-list-line-ol": {
+      position: "relative",
+      paddingLeft: "calc(1rem * (var(--depth, 0) + 1))",
+      display: "flex",
+      alignItems: "start",
+    },
+    ".cm-draftly-list-line-ul > :first-child, .cm-draftly-list-line-ol > :first-child": {
+      flexShrink: 0,
+    },
+
+    // List marker sizing
+    ".cm-draftly-list-line-ul .cm-draftly-list-mark-ul, .cm-draftly-list-line-ol .cm-draftly-list-mark-ol": {
+      whiteSpace: "pre",
+      position: "relative",
+      width: "1rem",
+      flexShrink: 0,
+    },
+
+    // Hide raw marker text when not active
+    ".cm-draftly-list-mark-ul:not(.cm-draftly-active) > span, .cm-draftly-task-line .cm-draftly-list-mark-ol:not(.cm-draftly-active) > span":
+      {
+        visibility: "hidden",
+        display: "none",
+      },
+
+    // Styled bullet for unordered lists
+    ".cm-draftly-list-line-ul .cm-draftly-list-mark-ul:not(.cm-draftly-active)::after": {
+      content: '"•"',
       color: "var(--color-link)",
       fontWeight: "bold",
       pointerEvents: "none",
     },
 
-    // Ordered List markers (1., 2.)
-    ".cm-draftly-list-mark-ol": {
-      color: "var(--draftly-highlight, #a4a4a4)",
-      fontFamily: "monospace",
-      marginRight: "2px",
-    },
-
-    // Task markers text ([ ] or [x]) - visible only when editing
+    // Task marker styling (visible when editing)
     ".cm-draftly-task-marker": {
       color: "var(--draftly-highlight, #a4a4a4)",
       fontFamily: "monospace",
     },
 
-    // Task Checkbox Widget
+    // Task checkbox container
     ".cm-draftly-task-checkbox": {
       display: "inline-flex",
       verticalAlign: "middle",
@@ -189,6 +333,7 @@ const theme = createTheme({
       height: "1.2em",
     },
 
+    // Task checkbox input styling
     ".cm-draftly-task-checkbox input": {
       cursor: "pointer",
       margin: 0,
@@ -201,11 +346,33 @@ const theme = createTheme({
       position: "relative",
     },
 
+    // Checkmark for completed tasks
     ".cm-draftly-task-checkbox.checked input::after": {
       content: '"✓"',
       position: "absolute",
       left: "1px",
       top: "-3px",
+    },
+
+    // Preview styles (override editor-specific layout)
+    ".cm-draftly-preview": {
+      display: "block",
+      paddingLeft: "1.5rem",
+      margin: "0.5rem 0",
+    },
+    ".cm-draftly-preview li": {
+      display: "list-item",
+      marginBottom: "0.25rem",
+    },
+    "ul.cm-draftly-preview": {
+      listStyleType: "disc",
+    },
+    "ol.cm-draftly-preview": {
+      listStyleType: "decimal",
+    },
+    // Hide list marker for task items
+    ".cm-draftly-preview li:has(.cm-draftly-task-checkbox)": {
+      listStyleType: "none",
     },
   },
 });
