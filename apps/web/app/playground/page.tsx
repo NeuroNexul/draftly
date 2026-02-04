@@ -154,7 +154,6 @@ export default function Page() {
         defaultKeybindings: true,
         history: true,
         indentWithTab: true,
-        drawSelection: true,
         highlightActiveLine: true,
         lineWrapping: true,
         onNodesChange: (nodes) => {
@@ -306,7 +305,6 @@ export default function Page() {
                   highlightActiveLine: mode === "code",
                   highlightActiveLineGutter: mode === "code",
                   highlightSelectionMatches: mode === "code",
-                  rectangularSelection: false,
                   drawSelection: false,
                 }}
               />
