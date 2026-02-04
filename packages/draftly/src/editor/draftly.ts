@@ -29,6 +29,9 @@ export interface DraftlyConfig {
   /** Theme */
   theme?: ThemeEnum;
 
+  /** ThemeStlye */
+  themeStyle?: Extension;
+
   /** Weather to load base styles */
   baseStyles?: boolean;
 
@@ -90,6 +93,7 @@ export interface DraftlyConfig {
 export function draftly(config: DraftlyConfig = {}): Extension[] {
   const {
     theme: configTheme = ThemeEnum.AUTO,
+    themeStyle: configThemeStyle = undefined,
     baseStyles = true,
     plugins = [],
     extensions = [],
@@ -176,6 +180,9 @@ export function draftly(config: DraftlyConfig = {}): Extension[] {
     // Core markdown support (highest priority)
     Prec.high(markdownSupport),
     Prec.high(keymap.of(markdownKeymap)),
+
+    // Theme styles
+    ...(configThemeStyle ? [Prec.high(configThemeStyle)] : []),
 
     // Core CodeMirror extensions
     ...baseExtensions,

@@ -4,7 +4,7 @@ import { EditorView } from "@codemirror/view";
  * Base theme for draftly styling
  * Note: Layout styles are scoped under .cm-draftly which is added by the view plugin
  */
-export const draftlyBaseTheme = EditorView.baseTheme({
+export const draftlyBaseTheme = EditorView.theme({
   // Container styles - only apply when view plugin is enabled
   "&.cm-draftly": {
     fontSize: "16px",
