@@ -15,11 +15,11 @@ import { Content } from "./types";
 
 import CodeMirror, { EditorView, Extension, ReactCodeMirrorRef } from "@uiw/react-codemirror";
 import { githubDark, githubLight } from "@uiw/codemirror-theme-github";
-import { draftly, DraftlyNode, ThemeEnum } from "draftly/editor";
 import { html } from "@codemirror/lang-html";
 import { css } from "@codemirror/lang-css";
-import { allPlugins } from "draftly/plugins";
-import { generateCSS, preview } from "draftly/preview";
+import { allPlugins } from "draftly/src";
+import { generateCSS, preview } from "draftly/src";
+import { draftly, DraftlyNode, ThemeEnum } from "draftly/src";
 
 const STORAGE_KEY = "draftly-playground-contents";
 const STORAGE_CURRENT_KEY = "draftly-playground-current";
