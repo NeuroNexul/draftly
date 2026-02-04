@@ -18,4 +18,12 @@ export const draftlyBaseTheme = EditorView.theme({
     fontSize: "16px",
     lineHeight: "1.6",
   },
+
+  "&.cm-draftly .cm-content .cm-line": {
+    padding: 0,
+  },
+
+  "&.cm-draftly .cm-content .cm-widgetBuffer": {
+    display: "none !important",
+  },
 });
