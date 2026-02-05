@@ -228,6 +228,8 @@ const mathBlockParser: BlockParser = {
       // Check if this line contains closing $$
       if (currentText.trimEnd().endsWith("$$")) {
         endPos = lastLineEnd;
+        // Move past the closing line so subsequent markdown gets parsed
+        cx.nextLine();
         break;
       }
     }
