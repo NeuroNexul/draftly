@@ -19,7 +19,51 @@ import { html } from "@codemirror/lang-html";
 import { css } from "@codemirror/lang-css";
 import { allPlugins } from "draftly/src";
 import { generateCSS, preview } from "draftly/src";
-import { draftly, DraftlyNode, ThemeEnum } from "draftly/src";
+import { draftly, DraftlyNode, DraftlyPlugin, ThemeEnum } from "draftly/src";
+
+// Plugin configuration - dynamic based on allPlugins
+export type PluginConfig = Record<string, boolean>;
+
+// Build default plugin config from allPlugins (all enabled by default)
+const defaultPluginConfig: PluginConfig = Object.fromEntries(
+  allPlugins.map((plugin) => [plugin.name.toLowerCase(), true])
+);
+
+// Configuration for devbar controls
+export type PlaygroundConfig = {
+  // Editor options
+  editor: {
+    baseStyles: boolean;
+    defaultKeybindings: boolean;
+    history: boolean;
+    indentWithTab: boolean;
+    highlightActiveLine: boolean;
+    lineWrapping: boolean;
+  };
+  // Preview options
+  preview: {
+    includeBase: boolean;
+    sanitize: boolean;
+  };
+  // Plugin toggles
+  plugins: PluginConfig;
+};
+
+const defaultConfig: PlaygroundConfig = {
+  editor: {
+    baseStyles: true,
+    defaultKeybindings: true,
+    history: true,
+    indentWithTab: true,
+    highlightActiveLine: true,
+    lineWrapping: true,
+  },
+  preview: {
+    includeBase: true,
+    sanitize: true,
+  },
+  plugins: defaultPluginConfig,
+};
 
 const STORAGE_KEY = "draftly-playground-contents";
 const STORAGE_CURRENT_KEY = "draftly-playground-current";
@@ -38,6 +82,7 @@ export default function Page() {
   const [mode, setMode] = useState<"live" | "view" | "code" | "output">("live");
   const [showNodes, setShowNodes] = useState(false);
   const [nodes, setNodes] = useState<DraftlyNode[]>([]);
+  const [config, setConfig] = useState<PlaygroundConfig>(defaultConfig);
 
   const [isLoading, setIsLoading] = useState(true);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
@@ -140,28 +185,36 @@ export default function Page() {
     saveToStorage(contents, index);
   }
 
+  // Build active plugins list based on config
+  const activePlugins = useMemo<DraftlyPlugin[]>(() => {
+    return allPlugins.filter((plugin) => {
+      const name = plugin.name.toLowerCase() as keyof PluginConfig;
+      return config.plugins[name] ?? true;
+    });
+  }, [config.plugins]);
+
   const defaultExtensions = useMemo<Extension[]>(
     () =>
       draftly({
         theme:
           theme && theme !== "system" ? (theme.includes("dark") ? ThemeEnum.DARK : ThemeEnum.LIGHT) : ThemeEnum.AUTO,
         themeStyle: theme && theme.includes("dark") ? githubDark : githubLight,
-        baseStyles: true,
-        plugins: allPlugins,
+        baseStyles: config.editor.baseStyles,
+        plugins: activePlugins,
         markdown: [],
         extensions: [],
         keymap: [],
         disableViewPlugin: mode === "code",
-        defaultKeybindings: true,
-        history: true,
-        indentWithTab: true,
-        highlightActiveLine: true,
-        lineWrapping: true,
+        defaultKeybindings: config.editor.defaultKeybindings,
+        history: config.editor.history,
+        indentWithTab: config.editor.indentWithTab,
+        highlightActiveLine: config.editor.highlightActiveLine,
+        lineWrapping: config.editor.lineWrapping,
         onNodesChange: (nodes) => {
           if (showNodes) setNodes(nodes);
         },
       }),
-    [theme, mode, showNodes]
+    [theme, mode, showNodes, config.editor, activePlugins]
   );
 
   const content = useMemo(() => {
@@ -169,22 +222,22 @@ export default function Page() {
 
     const html = preview(contents[currentContent]?.content || "", {
       theme: theme && theme !== "system" ? (theme.includes("dark") ? ThemeEnum.DARK : ThemeEnum.LIGHT) : ThemeEnum.AUTO,
-      plugins: allPlugins,
+      plugins: activePlugins,
       markdown: [],
-      sanitize: true,
+      sanitize: config.preview.sanitize,
       wrapperTag: "div",
       wrapperClass: "draftly-preview h-full w-full max-w-[48rem] mx-auto overflow-auto",
     });
 
     const css = generateCSS({
       theme: theme && theme !== "system" ? (theme.includes("dark") ? ThemeEnum.DARK : ThemeEnum.LIGHT) : ThemeEnum.AUTO,
-      plugins: allPlugins,
+      plugins: activePlugins,
       wrapperClass: "draftly-preview",
-      includeBase: true,
+      includeBase: config.preview.includeBase,
     });
 
     return { html, css };
-  }, [currentContent, contents, theme, mode]);
+  }, [currentContent, contents, theme, mode, activePlugins, config.preview]);
 
   if (isLoading) {
     return (
@@ -330,7 +383,7 @@ export default function Page() {
             }
           )}
         >
-          <Devbar nodes={nodes} setShowNodes={setShowNodes} />
+          <Devbar nodes={nodes} setShowNodes={setShowNodes} config={config} setConfig={setConfig} />
         </div>
       </main>
 
