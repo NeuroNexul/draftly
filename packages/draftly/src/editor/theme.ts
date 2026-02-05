@@ -13,6 +13,7 @@ export const draftlyBaseTheme = EditorView.theme({
 
   "&.cm-draftly .cm-content": {
     maxWidth: "48rem",
+    padding: "0 0.5rem",
     margin: "0 auto",
     fontFamily: "var(--font-sans, sans-serif)",
     fontSize: "16px",

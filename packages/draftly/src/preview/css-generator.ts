@@ -4,7 +4,9 @@ import { GenerateCSSConfig } from "./types";
 /**
  * Base CSS styles for preview rendering
  */
-const baseStyles = ``;
+const baseStyles = `.draftly-preview {
+  padding: 0 0.5rem;
+}`;
 
 /**
  * Generate CSS for preview rendering
