@@ -285,7 +285,7 @@ const theme = createTheme({
     // List line layout (flexbox for marker alignment)
     ".cm-draftly-list-line-ul, .cm-draftly-list-line-ol": {
       position: "relative",
-      paddingLeft: "calc(1rem * (var(--depth, 0) + 1))",
+      paddingLeft: "calc(1rem * (var(--depth, 0) + 1)) !important",
       display: "flex",
       alignItems: "start",
     },
