@@ -1,7 +1,7 @@
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@workspace/ui/components/accordion";
 import { Switch } from "@workspace/ui/components/switch";
 import { Label } from "@workspace/ui/components/label";
-import { allPlugins, DraftlyNode } from "draftly";
+import { allPlugins, DraftlyNode } from "draftly/src";
 import React from "react";
 import { PlaygroundConfig } from "./page";
 
