@@ -294,7 +294,11 @@ export default function Page() {
         </div>
 
         {/* Editor */}
-        <div className="flex-1 h-full mr-2 border rounded-lg overflow-hidden flex items-center justify-center">
+        <div
+          className={cn("flex-1 h-full mx-2 border rounded-lg overflow-hidden flex items-center justify-center", {
+            "ml-0 max-xl:ml-2": sidebarOpen,
+          })}
+        >
           {currentContent !== -1 ? (
             mode === "view" ? (
               <div className="h-full w-full overflow-auto">
