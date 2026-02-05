@@ -57,7 +57,7 @@ export default function Devbar({ setShowNodes, nodes, config, setConfig }: Props
   };
 
   return (
-    <div className="h-full w-full flex flex-col">
+    <div className="h-full w-full flex flex-col border rounded-lg">
       <div className="text-muted-foreground font-mono text-center whitespace-nowrap h-10 p-2 border-b shrink-0">
         Developer Panel
       </div>

@@ -277,7 +277,7 @@ export default function Page() {
         {/* Sidebar */}
         <div
           className={cn(
-            "h-full border-r bg-background overflow-hidden transition-all duration-300 ease-in-out",
+            "h-full bg-background overflow-hidden transition-all duration-300 ease-in-out",
             "fixed xl:relative top-12 xl:top-0 bottom-10 xl:bottom-0 left-0 z-40 xl:z-auto",
             {
               "w-64": sidebarOpen,
@@ -294,7 +294,7 @@ export default function Page() {
         </div>
 
         {/* Editor */}
-        <div className="flex-1 h-full border-r flex items-center justify-center">
+        <div className="flex-1 h-full mr-2 border rounded-lg overflow-hidden flex items-center justify-center">
           {currentContent !== -1 ? (
             mode === "view" ? (
               <div className="h-full w-full overflow-auto">
@@ -375,11 +375,11 @@ export default function Page() {
         {/* Developer Panel */}
         <div
           className={cn(
-            "h-full bg-background overflow-hidden transition-all duration-300 ease-in-out",
+            "h-full pr-2 bg-background overflow-hidden transition-all duration-300 ease-in-out",
             "fixed xl:relative top-12 xl:top-0 bottom-10 xl:bottom-0 right-0 z-40 xl:z-auto border-l xl:border-l-0",
             {
               "w-96": devbarOpen,
-              "w-0 xl:w-0": !devbarOpen,
+              "w-0 xl:w-0 pr-0": !devbarOpen,
             }
           )}
         >

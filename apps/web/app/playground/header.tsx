@@ -48,7 +48,7 @@ export default function Header({
   setMode,
 }: Props) {
   return (
-    <header className="h-12 w-full border-b flex items-center justify-between py-1 px-4 overflow-y-auto">
+    <header className="h-12 w-full flex items-center justify-between py-1 px-4 overflow-y-auto">
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="icon" className="size-8 p-1" onClick={() => setSidebarOpen(!sidebarOpen)}>
           {sidebarOpen ? <PanelLeftCloseIcon className="size-5" /> : <PanelLeftOpenIcon className="size-5" />}
