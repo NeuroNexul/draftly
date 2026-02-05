@@ -307,8 +307,8 @@ export default function Page() {
               </div>
             ) : mode === "output" ? (
               <div className="h-full w-full">
-                <div className="h-full w-full grid grid-rows-2 gap-2">
-                  <div className="h-full w-full flex flex-col gap-2">
+                <div className="h-full w-full grid grid-rows-2">
+                  <div className="h-full w-full flex flex-col border-b-2">
                     <CodeMirror
                       key={`draftly-output-${mode}`}
                       id={"draftly-output"}
@@ -325,7 +325,7 @@ export default function Page() {
                       spellCheck="false"
                     />
                   </div>
-                  <div className="h-full w-full flex flex-col gap-2">
+                  <div className="h-full w-full flex flex-col border-t-2">
                     <CodeMirror
                       key={`draftly-output-${mode}`}
                       id={"draftly-output"}
