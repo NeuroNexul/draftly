@@ -580,7 +580,7 @@ export class CodePlugin extends DecorationPlugin {
       if (match && match[1]) {
         content = match[1];
       }
-      return `<code class="cm-draftly-code-inline">${ctx.sanitize(content)}</code>`;
+      return `<code class="cm-draftly-code-inline" style="padding: 0.1rem 0.25rem">${ctx.sanitize(content)}</code>`;
     }
 
     // Fenced code block
