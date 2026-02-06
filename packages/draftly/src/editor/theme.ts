@@ -12,6 +12,7 @@ export const draftlyBaseTheme = EditorView.theme({
   },
 
   "&.cm-draftly .cm-content": {
+    width: "100%",
     maxWidth: "48rem",
     padding: "0 0.5rem",
     margin: "0 auto",

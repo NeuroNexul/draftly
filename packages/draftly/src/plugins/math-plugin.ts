@@ -480,6 +480,7 @@ const theme = createTheme({
       padding: "1em 0",
       backgroundColor: "rgba(0, 0, 0, 0.02)",
       borderRadius: "4px",
+      overflow: "auto",
     },
 
     // Math error styling
