@@ -1,4 +1,5 @@
 // Re-export individual plugins
+export { ParagraphPlugin } from "./paragraph-plugin";
 export { HeadingPlugin } from "./heading-plugin";
 export { InlinePlugin } from "./inline-plugin";
 export { ListPlugin } from "./list-plugin";
@@ -8,6 +9,7 @@ export { MathPlugin } from "./math-plugin";
 
 // Plugin collections
 import { DraftlyPlugin } from "../editor/plugin";
+import { ParagraphPlugin } from "./paragraph-plugin";
 import { HeadingPlugin } from "./heading-plugin";
 import { InlinePlugin } from "./inline-plugin";
 import { ListPlugin } from "./list-plugin";
@@ -21,6 +23,7 @@ import { MathPlugin } from "./math-plugin";
  * This is the set of essential plugins
  */
 const essentialPlugins: DraftlyPlugin[] = [
+  new ParagraphPlugin(),
   new HeadingPlugin(),
   new InlinePlugin(),
   new ListPlugin(),
