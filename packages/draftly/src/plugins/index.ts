@@ -6,6 +6,7 @@ export { ListPlugin } from "./list-plugin";
 export { HTMLPlugin } from "./html-plugin";
 export { ImagePlugin } from "./image-plugin";
 export { MathPlugin } from "./math-plugin";
+export { CodePlugin } from "./code-plugin";
 
 // Plugin collections
 import { DraftlyPlugin } from "../editor/plugin";
@@ -16,6 +17,7 @@ import { ListPlugin } from "./list-plugin";
 import { HTMLPlugin } from "./html-plugin";
 import { ImagePlugin } from "./image-plugin";
 import { MathPlugin } from "./math-plugin";
+import { CodePlugin } from "./code-plugin";
 
 /**
  * Default plugins
@@ -30,6 +32,7 @@ const essentialPlugins: DraftlyPlugin[] = [
   new HTMLPlugin(),
   new ImagePlugin(),
   new MathPlugin(),
+  new CodePlugin(),
 ];
 
 /**
