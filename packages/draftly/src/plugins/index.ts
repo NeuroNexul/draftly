@@ -2,6 +2,7 @@
 export { ParagraphPlugin } from "./paragraph-plugin";
 export { HeadingPlugin } from "./heading-plugin";
 export { InlinePlugin } from "./inline-plugin";
+export { LinkPlugin } from "./link-plugin";
 export { ListPlugin } from "./list-plugin";
 export { HTMLPlugin } from "./html-plugin";
 export { ImagePlugin } from "./image-plugin";
@@ -13,6 +14,7 @@ import { DraftlyPlugin } from "../editor/plugin";
 import { ParagraphPlugin } from "./paragraph-plugin";
 import { HeadingPlugin } from "./heading-plugin";
 import { InlinePlugin } from "./inline-plugin";
+import { LinkPlugin } from "./link-plugin";
 import { ListPlugin } from "./list-plugin";
 import { HTMLPlugin } from "./html-plugin";
 import { ImagePlugin } from "./image-plugin";
@@ -28,6 +30,7 @@ const essentialPlugins: DraftlyPlugin[] = [
   new ParagraphPlugin(),
   new HeadingPlugin(),
   new InlinePlugin(),
+  new LinkPlugin(),
   new ListPlugin(),
   new HTMLPlugin(),
   new ImagePlugin(),
