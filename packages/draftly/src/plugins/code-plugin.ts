@@ -788,6 +788,8 @@ const theme = createTheme({
 
     // Fenced code block lines
     ".cm-draftly-code-block-line": {
+      "--radius": "0.375rem",
+
       fontFamily: "var(--font-jetbrains-mono, monospace)",
       fontSize: "0.9rem",
       backgroundColor: "rgba(0, 0, 0, 0.03)",
@@ -799,8 +801,8 @@ const theme = createTheme({
 
     // First line of code block
     ".cm-draftly-code-block-line-start": {
-      borderTopLeftRadius: "6px",
-      borderTopRightRadius: "6px",
+      borderTopLeftRadius: "var(--radius)",
+      borderTopRightRadius: "var(--radius)",
       position: "relative",
       overflow: "hidden",
       borderTop: "1px solid var(--color-border)",
@@ -884,9 +886,10 @@ const theme = createTheme({
 
     // Last line of code block
     ".cm-draftly-code-block-line-end": {
-      borderBottomLeftRadius: "6px",
-      borderBottomRightRadius: "6px",
+      borderBottomLeftRadius: "var(--radius)",
+      borderBottomRightRadius: "var(--radius)",
       borderBottom: "1px solid var(--color-border)",
+      paddingTop: "0.5rem !important",
     },
 
     ".cm-draftly-code-block-line-end br": {
@@ -950,7 +953,7 @@ const theme = createTheme({
     // Preview: container wrapper
     ".cm-draftly-code-container": {
       margin: "1rem 0",
-      borderRadius: "6px",
+      borderRadius: "var(--radius)",
       overflow: "hidden",
       border: "1px solid var(--color-border)",
     },
@@ -982,7 +985,7 @@ const theme = createTheme({
       padding: "1rem",
       overflow: "auto",
       position: "relative",
-      borderRadius: "6px",
+      borderRadius: "var(--radius)",
       border: "1px solid var(--color-border)",
     },
 
