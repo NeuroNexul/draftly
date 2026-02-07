@@ -341,6 +341,8 @@ export default function Page() {
             currentContent={currentContent}
             setCurrentContent={handleSetCurrentContent}
             addNewContent={addNewContent}
+            deleteContent={deleteContent}
+            renameContent={renameContent}
           />
         </div>
 
