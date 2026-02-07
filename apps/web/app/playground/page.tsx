@@ -203,6 +203,32 @@ export default function Page() {
     saveToStorage(newContents, newIndex);
   }
 
+  function deleteContent(id: string) {
+    const index = contents.findIndex((c) => c.id === id);
+    if (index === -1) return;
+
+    const newContents = contents.filter((c) => c.id !== id);
+    setContents(newContents);
+
+    // Adjust currentContent if needed
+    let newCurrent = currentContent;
+    if (newContents.length === 0) {
+      newCurrent = -1;
+    } else if (currentContent >= index) {
+      newCurrent = Math.max(0, currentContent - 1);
+    }
+    setCurrentContent(newCurrent);
+    saveToStorage(newContents, newCurrent);
+  }
+
+  function renameContent(id: string, newTitle: string) {
+    setContents((c) => {
+      const updated = c.map((content) => (content.id === id ? { ...content, title: newTitle } : content));
+      saveToStorage(updated, currentContent);
+      return updated;
+    });
+  }
+
   const editor = useRef<ReactCodeMirrorRef>(null);
   function handleSetCurrentContent(index: number) {
     setCurrentContent(index);
