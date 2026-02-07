@@ -72,7 +72,7 @@ const DEBOUNCE_MS = 500;
 export type SaveStatus = "idle" | "saving" | "saved";
 
 export default function Page() {
-  const { theme } = useTheme();
+  const { resolvedTheme: theme } = useTheme();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [devbarOpen, setDevbarOpen] = useState(false);
 

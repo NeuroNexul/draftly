@@ -22,8 +22,15 @@ export const THEME_OPTIONS = [
 ] as const;
 
 // Extract theme values for the provider
-const themeValues = THEME_OPTIONS.filter((t) => t.value !== "system").map((t) => t.value);
-const themeClassMap = Object.fromEntries(themeValues.map((v) => [v, v]));
+const themeValues = THEME_OPTIONS.map((t) => t.value);
+// Map theme values to CSS class names
+// Include "dark" and "light" mappings for system theme resolution
+const themeClassMap: Record<string, string> = {
+  "default-light": "default-light",
+  "default-dark": "default-dark",
+  dark: "default-dark", // System theme resolves to "dark"
+  light: "default-light", // System theme resolves to "light"
+};
 
 // =============================================
 // Theme Switcher Component
