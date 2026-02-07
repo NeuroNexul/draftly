@@ -13,6 +13,8 @@ import Devbar from "./devbar";
 import Sidebar from "./sidebar";
 import { Content } from "./types";
 
+import whatIsDraftly from "../data/md/what-id-draftly";
+
 import CodeMirror, { EditorView, Extension, ReactCodeMirrorRef } from "@uiw/react-codemirror";
 import { githubDark, githubLight } from "@uiw/codemirror-theme-github";
 import { html } from "@codemirror/lang-html";
@@ -110,6 +112,19 @@ export default function Page() {
       } catch {
         console.error("Failed to parse stored contents");
       }
+    } else {
+      // Load default content from data/md folder
+      const defaultContents: Content[] = [
+        {
+          id: uuid(),
+          title: "What is Draftly?",
+          content: whatIsDraftly,
+        },
+      ];
+      setContents(defaultContents);
+      setCurrentContent(0);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultContents));
+      localStorage.setItem(STORAGE_CURRENT_KEY, "0");
     }
 
     if (storedCurrent) {
