@@ -970,6 +970,7 @@ const theme = createTheme({
       margin: "0",
       borderRadius: "0",
       border: "none",
+      whiteSpace: "pre-wrap",
     },
 
     // Preview: caption inside container
