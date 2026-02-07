@@ -8,6 +8,7 @@ export { HTMLPlugin } from "./html-plugin";
 export { ImagePlugin } from "./image-plugin";
 export { MathPlugin } from "./math-plugin";
 export { CodePlugin } from "./code-plugin";
+export { QuotePlugin } from "./quote-plugin";
 
 // Plugin collections
 import { DraftlyPlugin } from "../editor/plugin";
@@ -20,6 +21,7 @@ import { HTMLPlugin } from "./html-plugin";
 import { ImagePlugin } from "./image-plugin";
 import { MathPlugin } from "./math-plugin";
 import { CodePlugin } from "./code-plugin";
+import { QuotePlugin } from "./quote-plugin";
 
 /**
  * Default plugins
@@ -36,6 +38,7 @@ const essentialPlugins: DraftlyPlugin[] = [
   new ImagePlugin(),
   new MathPlugin(),
   new CodePlugin(),
+  new QuotePlugin(),
 ];
 
 /**
