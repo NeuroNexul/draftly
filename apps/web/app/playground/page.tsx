@@ -12,6 +12,7 @@ import Header from "./header";
 import Devbar from "./devbar";
 import Sidebar from "./sidebar";
 import { Content } from "./types";
+import CreateContentDialog from "./create-content-dialog";
 
 import whatIsDraftly from "../data/md/what-id-draftly";
 
@@ -419,9 +420,10 @@ export default function Page() {
           ) : (
             <div className="w-full h-full flex flex-col items-center justify-center">
               <span className="text-muted-foreground font-mono whitespace-nowrap">No Content Selected</span>
-              <Button className="mt-4" onClick={() => addNewContent(window.prompt("Enter Content Title") || "")}>
-                Create New
-              </Button>
+              <CreateContentDialog
+                onCreateContent={addNewContent}
+                trigger={<Button className="mt-4">Create New</Button>}
+              />
             </div>
           )}
         </div>

@@ -1,8 +1,11 @@
+"use client";
+
 import React from "react";
 import { Content } from "./types";
 import { Button } from "@workspace/ui/components/button";
 import { Plus, FileText } from "lucide-react";
 import { cn } from "@workspace/ui/lib/utils";
+import CreateContentDialog from "./create-content-dialog";
 
 type Props = {
   contents: Content[];
@@ -12,21 +15,19 @@ type Props = {
 };
 
 export default function Sidebar({ contents, currentContent, setCurrentContent, addNewContent }: Props) {
-  function handleCreate() {
-    const title = window.prompt("Enter Content Title");
-    if (title) {
-      addNewContent(title);
-    }
-  }
-
   return (
     <div className="h-full w-full flex flex-col">
       {/* Header */}
       <div className="p-3 border-b flex items-center justify-between">
         <h2 className="text-sm font-semibold">Contents</h2>
-        <Button size="icon" variant="ghost" onClick={handleCreate}>
-          <Plus className="h-4 w-4" />
-        </Button>
+        <CreateContentDialog
+          onCreateContent={addNewContent}
+          trigger={
+            <Button size="icon" variant="ghost">
+              <Plus className="h-4 w-4" />
+            </Button>
+          }
+        />
       </div>
 
       {/* Content List */}
