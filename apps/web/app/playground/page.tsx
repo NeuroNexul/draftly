@@ -73,8 +73,17 @@ export type SaveStatus = "idle" | "saving" | "saved";
 
 export default function Page() {
   const { theme } = useTheme();
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [devbarOpen, setDevbarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [devbarOpen, setDevbarOpen] = useState(false);
+
+  // Open panels by default only on desktop (xl breakpoint = 1280px)
+  useEffect(() => {
+    const isDesktop = window.matchMedia("(min-width: 1280px)").matches;
+    if (isDesktop) {
+      setSidebarOpen(true);
+      setDevbarOpen(true);
+    }
+  }, []);
 
   const [contents, setContents] = useState<Content[]>([]);
   const [currentContent, setCurrentContent] = useState<number>(-1);
