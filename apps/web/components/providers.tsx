@@ -52,7 +52,7 @@ export function ThemeSwitcher() {
       <DropdownMenuTrigger asChild>
         <Button variant="outline" size="sm">
           <CurrentIcon className="size-4" />
-          <span>{theme}</span>
+          <span className="hidden sm:inline">{theme}</span>
           <ChevronDown className="size-4 ml-auto" />
           <span className="sr-only">Toggle theme</span>
         </Button>

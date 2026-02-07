@@ -61,12 +61,12 @@ export default function Header({
             {saveStatus === "saving" ? (
               <>
                 <Loader2 className="size-3.5 animate-spin" />
-                <span>Saving...</span>
+                <span className="hidden sm:inline">Saving...</span>
               </>
             ) : (
               <>
                 <Check className="size-3.5 text-green-500" />
-                <span>Saved</span>
+                <span className="hidden sm:inline">Saved</span>
               </>
             )}
           </div>
@@ -80,7 +80,7 @@ export default function Header({
                 if (!Icon) return null;
                 return <Icon className="size-4" />;
               })()}
-              <span>{modes.find((option) => option.value === mode)?.label}</span>
+              <span className="hidden sm:inline">{modes.find((option) => option.value === mode)?.label}</span>
               <ChevronDown className="size-4 ml-auto" />
               <span className="sr-only">Toggle theme</span>
             </Button>
@@ -98,7 +98,7 @@ export default function Header({
         </DropdownMenu>
         <Button variant="outline" size="sm" onClick={() => setDevbarOpen(!devbarOpen)}>
           {devbarOpen ? <PanelLeftCloseIcon className="size-4" /> : <PanelLeftOpenIcon className="size-4" />}
-          <span>{devbarOpen ? "Hide Devbar" : "Show Devbar"}</span>
+          <span className="hidden sm:inline">{devbarOpen ? "Hide Devbar" : "Show Devbar"}</span>
         </Button>
       </div>
     </header>
