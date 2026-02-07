@@ -38,7 +38,7 @@ export default function Devbar({ setShowNodes, nodes, config, setConfig }: Props
   };
 
   // Track which accordions are open
-  const [openValues, setOpenValues] = React.useState<string[]>(["editor", "preview", "plugins"]);
+  const [openValues, setOpenValues] = React.useState<string[]>(["editor", "preview"]);
   const isNodesOpen = openValues.includes("nodes");
 
   const handleValueChange = (values: string[]) => {
@@ -48,7 +48,7 @@ export default function Devbar({ setShowNodes, nodes, config, setConfig }: Props
       setShowNodes(true);
     } else if (!values.includes("nodes") && openValues.includes("nodes")) {
       // Nodes is being closed, restore other sections
-      setOpenValues(values.length > 0 ? values : ["editor", "preview", "plugins"]);
+      setOpenValues(values.length > 0 ? values : ["editor", "preview"]);
       setShowNodes(false);
     } else {
       setOpenValues(values.filter((v) => v !== "nodes"));
