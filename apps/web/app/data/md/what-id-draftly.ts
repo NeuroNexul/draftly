@@ -72,7 +72,7 @@ $$
 
 <div style="display: grid; place-items: center">
   <svg viewBox="0 0 200 200" width="400px" xmlns="http://www.w3.org/2000/svg" aria-labelledby="t">
-    <image href="https://images.unsplash.com/photo-1488161628813-04466f872be2?ixlib=rb-1.2.1&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=764&q=80"
+    <image href="https://res.cloudinary.com/djoo8ogmp/image/upload/w_500/v1770482161/uploaded/image-1770482148521_vpqle9.webp"
       width="200" height="200"
       preserveAspectRatio="xMidYMid slice"
       clip-path="url(#blobClip)"/>
