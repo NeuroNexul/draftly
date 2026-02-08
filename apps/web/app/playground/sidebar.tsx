@@ -96,12 +96,14 @@ export default function Sidebar({
           <ul className="py-2">
             {contents.map((content, index) => (
               <li key={content.id} className="group">
-                <button
+                <div
                   onClick={() => setCurrentContent(index)}
                   className={cn(
-                    "w-full px-3 py-2 flex items-center gap-2 text-left text-sm transition-colors hover:bg-accent",
+                    "w-full px-3 py-2 flex items-center gap-2 text-left text-sm transition-colors hover:bg-accent cursor-pointer",
                     currentContent === index && "bg-accent"
                   )}
+                  aria-selected={currentContent === index}
+                  role="option"
                 >
                   <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
                   <span className="truncate flex-1">{content.title}</span>
@@ -123,7 +125,7 @@ export default function Sidebar({
                       <Trash2 className="h-3 w-3" />
                     </Button>
                   </div>
-                </button>
+                </div>
               </li>
             ))}
           </ul>
