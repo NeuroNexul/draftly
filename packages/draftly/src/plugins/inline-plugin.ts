@@ -1,8 +1,9 @@
-import { Decoration } from "@codemirror/view";
+import { Decoration, KeyBinding } from "@codemirror/view";
 import { syntaxTree } from "@codemirror/language";
 import { DecorationContext, DecorationPlugin } from "../editor/plugin";
 import { createTheme } from "../editor";
 import { SyntaxNode } from "@lezer/common";
+import { toggleMarkdownStyle } from "../editor/utils";
 
 /**
  * Node types for inline styling in markdown
@@ -70,6 +71,39 @@ export class InlinePlugin extends DecorationPlugin {
    */
   override get theme() {
     return theme;
+  }
+
+  /**
+   * Keyboard shortcuts for inline formatting
+   */
+  override getKeymap(): KeyBinding[] {
+    return [
+      {
+        key: "Mod-b",
+        run: toggleMarkdownStyle("**"),
+        preventDefault: true,
+      },
+      {
+        key: "Mod-i",
+        run: toggleMarkdownStyle("*"),
+        preventDefault: true,
+      },
+      {
+        key: "Mod-Shift-s",
+        run: toggleMarkdownStyle("~~"),
+        preventDefault: true,
+      },
+      {
+        key: "Mod-,",
+        run: toggleMarkdownStyle("~"),
+        preventDefault: true,
+      },
+      {
+        key: "Mod-.",
+        run: toggleMarkdownStyle("^"),
+        preventDefault: true,
+      },
+    ];
   }
 
   /**
