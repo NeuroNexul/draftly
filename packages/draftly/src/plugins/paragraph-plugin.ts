@@ -10,6 +10,7 @@ import { createTheme } from "../editor";
 export class ParagraphPlugin extends DraftlyPlugin {
   readonly name = "paragraph";
   readonly version = "1.0.0";
+  override readonly requiredNodes = ["Paragraph"] as const;
 
   /**
    * Plugin theme for preview styling

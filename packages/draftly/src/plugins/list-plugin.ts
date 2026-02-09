@@ -101,6 +101,14 @@ export class ListPlugin extends DecorationPlugin {
   readonly name = "list";
   readonly version = "1.0.0";
   override decorationPriority = 20;
+  override readonly requiredNodes = [
+    "BulletList",
+    "OrderedList",
+    "ListItem",
+    "ListMark",
+    "Task",
+    "TaskMarker",
+  ] as const;
 
   override get theme() {
     return theme;

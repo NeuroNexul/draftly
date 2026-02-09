@@ -60,6 +60,9 @@ export abstract class DraftlyPlugin {
   /** Plugin dependencies - names of required plugins */
   readonly dependencies: string[] = [];
 
+  /** Node types this plugin handles for decorations and preview rendering */
+  readonly requiredNodes: readonly string[] = [];
+
   /** Private configuration storage */
   private _config: PluginConfig = {};
 

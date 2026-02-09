@@ -46,6 +46,15 @@ export class HeadingPlugin extends DecorationPlugin {
   readonly name = "heading";
   readonly version = "1.0.0";
   override decorationPriority = 10;
+  override readonly requiredNodes = [
+    "ATXHeading1",
+    "ATXHeading2",
+    "ATXHeading3",
+    "ATXHeading4",
+    "ATXHeading5",
+    "ATXHeading6",
+    "HeaderMark",
+  ] as const;
 
   /**
    * Constructor - calls super constructor

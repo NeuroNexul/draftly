@@ -44,6 +44,17 @@ export class InlinePlugin extends DecorationPlugin {
   readonly name = "inline";
   readonly version = "1.0.0";
   override decorationPriority = 20;
+  override readonly requiredNodes = [
+    "Emphasis",
+    "StrongEmphasis",
+    "Strikethrough",
+    "Subscript",
+    "Superscript",
+    "EmphasisMark",
+    "StrikethroughMark",
+    "SubscriptMark",
+    "SuperscriptMark",
+  ] as const;
   marks: string[] = [];
 
   constructor() {

@@ -212,6 +212,7 @@ export class CodePlugin extends DecorationPlugin {
   readonly name = "code";
   readonly version = "1.0.0";
   override decorationPriority = 25;
+  override readonly requiredNodes = ["InlineCode", "FencedCode", "CodeMark", "CodeInfo", "CodeText"] as const;
 
   /**
    * Plugin theme

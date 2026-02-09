@@ -265,7 +265,8 @@ const mathBlockParser: BlockParser = {
 export class MathPlugin extends DecorationPlugin {
   readonly name = "math";
   readonly version = "1.0.0";
-  override decorationPriority = 15;
+  override decorationPriority = 25;
+  override readonly requiredNodes = ["InlineMath", "MathBlock", "InlineMathMark", "MathBlockMark"] as const;
 
   constructor() {
     super();

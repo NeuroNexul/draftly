@@ -34,6 +34,7 @@ export class QuotePlugin extends DecorationPlugin {
   readonly name = "quote";
   readonly version = "1.0.0";
   override decorationPriority = 10;
+  override readonly requiredNodes = ["Blockquote", "QuoteMark"] as const;
 
   /**
    * Constructor - calls super constructor

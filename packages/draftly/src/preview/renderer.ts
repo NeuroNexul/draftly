@@ -19,6 +19,7 @@ export class PreviewRenderer {
   private sanitizeHtml: boolean;
   private renderers: NodeRendererMap;
   private ctx: PreviewContext;
+  private nodeToPlugins: Map<string, DraftlyPlugin[]>;
 
   constructor(
     doc: string,
@@ -36,6 +37,26 @@ export class PreviewRenderer {
 
     // Create context with reference to renderChildren
     this.ctx = createPreviewContext(doc, theme, this.renderChildren.bind(this), sanitize);
+
+    // Build node-to-plugin map for O(1) lookup
+    this.nodeToPlugins = this.buildNodePluginMap();
+  }
+
+  /**
+   * Build a map from node names to plugins that handle them
+   */
+  private buildNodePluginMap(): Map<string, DraftlyPlugin[]> {
+    const map = new Map<string, DraftlyPlugin[]>();
+    for (const plugin of this.plugins) {
+      if (plugin.renderToHTML && plugin.requiredNodes.length > 0) {
+        for (const nodeName of plugin.requiredNodes) {
+          const list = map.get(nodeName) || [];
+          list.push(plugin);
+          map.set(nodeName, list);
+        }
+      }
+    }
+    return map;
   }
 
   /**
@@ -76,11 +97,12 @@ export class PreviewRenderer {
    * Render a single node to HTML
    */
   private renderNode(node: SyntaxNode): string {
-    // First, let plugins try to render
-    for (const plugin of this.plugins) {
-      if (plugin.renderToHTML) {
+    // Get plugins that handle this node type (O(1) lookup)
+    const plugins = this.nodeToPlugins.get(node.name);
+    if (plugins) {
+      for (const plugin of plugins) {
         const children = this.renderChildren(node);
-        const result = plugin.renderToHTML(node, children, this.ctx);
+        const result = plugin.renderToHTML!(node, children, this.ctx);
         if (result !== null) {
           return result;
         }

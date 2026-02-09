@@ -113,6 +113,7 @@ export class LinkPlugin extends DecorationPlugin {
   readonly name = "link";
   readonly version = "1.0.0";
   override decorationPriority = 22;
+  override readonly requiredNodes = ["Link"] as const;
 
   constructor() {
     super();

@@ -135,6 +135,7 @@ export class ImagePlugin extends DecorationPlugin {
   readonly name = "image";
   readonly version = "1.0.0";
   override decorationPriority = 25;
+  override readonly requiredNodes = ["Image"] as const;
 
   constructor() {
     super();
