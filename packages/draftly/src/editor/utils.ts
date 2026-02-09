@@ -92,3 +92,52 @@ export function selectionOverlapsRange(view: EditorView, from: number, to: numbe
   }
   return false;
 }
+
+/**
+ * Toggle markdown style on selection or insert markers at cursor
+ * @param marker - The markdown marker (e.g., "**" for bold, "*" for italic)
+ * @returns Command function for EditorView
+ */
+export function toggleMarkdownStyle(marker: string): (view: EditorView) => boolean {
+  return (view: EditorView) => {
+    const { state } = view;
+    const { from, to, empty } = state.selection.main;
+
+    // Get selected text
+    const selectedText = state.sliceDoc(from, to);
+
+    // Check if already wrapped with markers
+    const markerLen = marker.length;
+    const beforeFrom = Math.max(0, from - markerLen);
+    const afterTo = Math.min(state.doc.length, to + markerLen);
+    const textBefore = state.sliceDoc(beforeFrom, from);
+    const textAfter = state.sliceDoc(to, afterTo);
+
+    const isWrapped = textBefore === marker && textAfter === marker;
+
+    if (isWrapped) {
+      // Remove markers
+      view.dispatch({
+        changes: [
+          { from: beforeFrom, to: from, insert: "" },
+          { from: to, to: afterTo, insert: "" },
+        ],
+        selection: { anchor: beforeFrom, head: beforeFrom + selectedText.length },
+      });
+    } else if (empty) {
+      // No selection - insert markers and place cursor between them
+      view.dispatch({
+        changes: { from, to, insert: marker + marker },
+        selection: { anchor: from + markerLen },
+      });
+    } else {
+      // Wrap selection with markers
+      view.dispatch({
+        changes: { from, to, insert: marker + selectedText + marker },
+        selection: { anchor: from + markerLen, head: to + markerLen },
+      });
+    }
+
+    return true;
+  };
+}
