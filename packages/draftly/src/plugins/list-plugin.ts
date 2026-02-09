@@ -1,4 +1,4 @@
-import { Decoration, EditorView, WidgetType } from "@codemirror/view";
+import { Decoration, EditorView, KeyBinding, WidgetType } from "@codemirror/view";
 import { syntaxTree } from "@codemirror/language";
 import { DecorationContext, DecorationPlugin } from "../editor/plugin";
 import { createTheme } from "../editor";
@@ -112,6 +112,109 @@ export class ListPlugin extends DecorationPlugin {
 
   override get theme() {
     return theme;
+  }
+
+  /**
+   * Keyboard shortcuts for list formatting
+   */
+  override getKeymap(): KeyBinding[] {
+    return [
+      {
+        key: "Mod-Shift-8",
+        run: (view) => this.toggleListOnLines(view, "- "),
+        preventDefault: true,
+      },
+      {
+        key: "Mod-Shift-7",
+        run: (view) => this.toggleListOnLines(view, "1. "),
+        preventDefault: true,
+      },
+      {
+        key: "Mod-Shift-9",
+        run: (view) => this.toggleListOnLines(view, "- [ ] "),
+        preventDefault: true,
+      },
+    ];
+  }
+
+  /**
+   * Toggle list marker on current line or selected lines
+   */
+  private toggleListOnLines(view: EditorView, marker: string): boolean {
+    const { state } = view;
+    const { from, to } = state.selection.main;
+
+    // Get all lines in selection
+    const startLine = state.doc.lineAt(from);
+    const endLine = state.doc.lineAt(to);
+
+    const changes: { from: number; to: number; insert: string }[] = [];
+
+    // Regex to match existing list markers
+    const listMarkerRegex = /^(\s*)([-*+]|\d+\.)\s(\[[ xX]\]\s)?/;
+
+    const isOrderedMarker = marker === "1. ";
+    let orderNum = 1;
+
+    for (let lineNum = startLine.number; lineNum <= endLine.number; lineNum++) {
+      const line = state.doc.line(lineNum);
+      const match = line.text.match(listMarkerRegex);
+
+      // Get the actual marker to insert (incremental for ordered lists)
+      const actualMarker = isOrderedMarker ? `${orderNum}. ` : marker;
+
+      if (match) {
+        // Line already has a list marker - check if same type
+        const existingMarker = match[0];
+        const indent = match[1] || "";
+
+        // Check if this is the same marker type (toggle off)
+        const isUnordered = /^[-*+]$/.test(match[2]!);
+        const isOrdered = /^\d+\.$/.test(match[2]!);
+        const hasTask = !!match[3];
+
+        const wantUnordered = marker === "- ";
+        const wantOrdered = isOrderedMarker;
+        const wantTask = marker === "- [ ] ";
+
+        if (
+          (wantUnordered && isUnordered && !hasTask) ||
+          (wantOrdered && isOrdered && !hasTask) ||
+          (wantTask && hasTask)
+        ) {
+          // Same type - remove the marker
+          changes.push({
+            from: line.from,
+            to: line.from + existingMarker.length,
+            insert: indent,
+          });
+        } else {
+          // Different type - replace the marker
+          changes.push({
+            from: line.from,
+            to: line.from + existingMarker.length,
+            insert: indent + actualMarker,
+          });
+          orderNum++;
+        }
+      } else {
+        // No list marker - add one at start of line (after any indent)
+        const indentMatch = line.text.match(/^(\s*)/);
+        const indent = indentMatch ? indentMatch[1]! : "";
+        changes.push({
+          from: line.from + indent.length,
+          to: line.from + indent.length,
+          insert: actualMarker,
+        });
+        orderNum++;
+      }
+    }
+
+    if (changes.length > 0) {
+      view.dispatch({ changes });
+    }
+
+    return true;
   }
 
   buildDecorations(ctx: DecorationContext): void {
