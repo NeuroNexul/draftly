@@ -1,7 +1,7 @@
-import { Decoration, WidgetType } from "@codemirror/view";
+import { Decoration, EditorView, KeyBinding, WidgetType } from "@codemirror/view";
 import { syntaxTree } from "@codemirror/language";
 import { DecorationContext, DecorationPlugin } from "../editor/plugin";
-import { createTheme } from "../editor";
+import { createTheme, toggleMarkdownStyle } from "../editor";
 import { SyntaxNode } from "@lezer/common";
 import { highlightCode } from "@lezer/highlight";
 import { languages } from "@codemirror/language-data";
@@ -219,6 +219,73 @@ export class CodePlugin extends DecorationPlugin {
    */
   override get theme() {
     return theme;
+  }
+
+  /**
+   * Keyboard shortcuts for code formatting
+   */
+  override getKeymap(): KeyBinding[] {
+    return [
+      {
+        key: "Mod-e",
+        run: toggleMarkdownStyle("`"),
+        preventDefault: true,
+      },
+      {
+        key: "Mod-Shift-e",
+        run: (view) => this.toggleCodeBlock(view),
+        preventDefault: true,
+      },
+    ];
+  }
+
+  /**
+   * Toggle code block on current line or selected lines
+   */
+  private toggleCodeBlock(view: EditorView): boolean {
+    const { state } = view;
+    const { from, to } = state.selection.main;
+
+    // Get all lines in selection
+    const startLine = state.doc.lineAt(from);
+    const endLine = state.doc.lineAt(to);
+
+    // Check if lines are already in a code block
+    const prevLineNum = startLine.number > 1 ? startLine.number - 1 : startLine.number;
+    const nextLineNum = endLine.number < state.doc.lines ? endLine.number + 1 : endLine.number;
+
+    const prevLine = state.doc.line(prevLineNum);
+    const nextLine = state.doc.line(nextLineNum);
+
+    const isWrapped =
+      prevLine.text.trim().startsWith("```") &&
+      nextLine.text.trim() === "```" &&
+      prevLineNum !== startLine.number &&
+      nextLineNum !== endLine.number;
+
+    if (isWrapped) {
+      // Remove the fence lines
+      view.dispatch({
+        changes: [
+          { from: prevLine.from, to: prevLine.to + 1, insert: "" }, // Remove opening fence + newline
+          { from: nextLine.from - 1, to: nextLine.to, insert: "" }, // Remove newline + closing fence
+        ],
+      });
+    } else {
+      // Wrap with code fence
+      const openFence = "```\n";
+      const closeFence = "\n```";
+
+      view.dispatch({
+        changes: [
+          { from: startLine.from, insert: openFence },
+          { from: endLine.to, insert: closeFence },
+        ],
+        selection: { anchor: startLine.from + openFence.length, head: endLine.to + openFence.length },
+      });
+    }
+
+    return true;
   }
 
   /**
