@@ -1,4 +1,4 @@
-import { Decoration, EditorView, WidgetType } from "@codemirror/view";
+import { Decoration, EditorView, KeyBinding, WidgetType } from "@codemirror/view";
 import { syntaxTree } from "@codemirror/language";
 import { DecorationContext, DecorationPlugin } from "../editor/plugin";
 import { createTheme } from "../editor";
@@ -146,6 +146,100 @@ export class ImagePlugin extends DecorationPlugin {
    */
   override get theme() {
     return theme;
+  }
+
+  /**
+   * Keyboard shortcuts for image formatting
+   */
+  override getKeymap(): KeyBinding[] {
+    return [
+      {
+        key: "Mod-Shift-i",
+        run: (view) => this.toggleImage(view),
+        preventDefault: true,
+      },
+    ];
+  }
+
+  /**
+   * URL regex pattern
+   */
+  private readonly urlPattern = /^(https?:\/\/|www\.)[^\s]+$/i;
+
+  /**
+   * Toggle image on selection
+   * - If text selected and is a URL: ![Alt Text](url) with cursor in brackets
+   * - If text selected (not URL): ![text]() with cursor in parentheses
+   * - If nothing selected: ![Alt Text]() with cursor in parentheses
+   * - If already an image: remove syntax, leave just the URL
+   */
+  private toggleImage(view: EditorView): boolean {
+    const { state } = view;
+    const { from, to, empty } = state.selection.main;
+    const selectedText = state.sliceDoc(from, to);
+
+    // Check if selection is already an image ![alt](url)
+    const imageMatch = selectedText.match(/^!\[([^\]]*)\]\(([^)]*)\)$/);
+    if (imageMatch) {
+      // Already an image - extract just the URL and replace
+      const imageUrl = imageMatch[2] || "";
+      view.dispatch({
+        changes: { from, to, insert: imageUrl },
+        selection: { anchor: from, head: from + imageUrl.length },
+      });
+      return true;
+    }
+
+    // Check if we're inside an image by looking at surrounding context
+    const lineStart = state.doc.lineAt(from).from;
+    const lineEnd = state.doc.lineAt(to).to;
+    const lineText = state.sliceDoc(lineStart, lineEnd);
+
+    // Find image pattern in line that contains the selection
+    const imageRegex = /!\[([^\]]*)\]\(([^)]*)\)/g;
+    let match;
+    while ((match = imageRegex.exec(lineText)) !== null) {
+      const matchFrom = lineStart + match.index;
+      const matchTo = matchFrom + match[0].length;
+
+      // Check if selection is within this image
+      if (from >= matchFrom && to <= matchTo) {
+        // Remove the image syntax, leave just the URL
+        const imageUrl = match[2] || "";
+        view.dispatch({
+          changes: { from: matchFrom, to: matchTo, insert: imageUrl },
+          selection: { anchor: matchFrom, head: matchFrom + imageUrl.length },
+        });
+        return true;
+      }
+    }
+
+    if (empty) {
+      // No selection - insert ![Alt Text]() and place cursor in parentheses
+      const defaultAlt = "Alt Text";
+      const newText = `![${defaultAlt}]()`;
+      view.dispatch({
+        changes: { from, insert: newText },
+        selection: { anchor: from + defaultAlt.length + 4 }, // After ![Alt Text](
+      });
+    } else if (this.urlPattern.test(selectedText)) {
+      // Selected text is a URL - put it in parentheses with default alt text
+      const defaultAlt = "Alt Text";
+      const newText = `![${defaultAlt}](${selectedText})`;
+      view.dispatch({
+        changes: { from, to, insert: newText },
+        selection: { anchor: from + 2, head: from + 2 + defaultAlt.length }, // Select "Alt Text"
+      });
+    } else {
+      // Selected text is not a URL - use as alt text, cursor in parentheses
+      const newText = `![${selectedText}]()`;
+      view.dispatch({
+        changes: { from, to, insert: newText },
+        selection: { anchor: from + selectedText.length + 4 }, // After ![text](
+      });
+    }
+
+    return true;
   }
 
   buildDecorations(ctx: DecorationContext): void {
