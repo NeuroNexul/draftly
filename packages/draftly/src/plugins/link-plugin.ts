@@ -1,4 +1,4 @@
-import { Decoration, EditorView, WidgetType } from "@codemirror/view";
+import { Decoration, EditorView, KeyBinding, WidgetType } from "@codemirror/view";
 import { syntaxTree } from "@codemirror/language";
 import { DecorationContext, DecorationPlugin } from "../editor/plugin";
 import { createTheme } from "../editor";
@@ -124,6 +124,97 @@ export class LinkPlugin extends DecorationPlugin {
    */
   override get theme() {
     return theme;
+  }
+
+  /**
+   * Keyboard shortcuts for link formatting
+   */
+  override getKeymap(): KeyBinding[] {
+    return [
+      {
+        key: "Mod-k",
+        run: (view) => this.toggleLink(view),
+        preventDefault: true,
+      },
+    ];
+  }
+
+  /**
+   * URL regex pattern
+   */
+  private readonly urlPattern = /^(https?:\/\/|www\.)[^\s]+$/i;
+
+  /**
+   * Toggle link on selection
+   * - If text is selected and is a URL: [](url) with cursor in brackets
+   * - If text is selected (not URL): [text]() with cursor in parentheses
+   * - If nothing selected: []() with cursor in brackets
+   * - If already a link: remove syntax, leave plain text
+   */
+  private toggleLink(view: EditorView): boolean {
+    const { state } = view;
+    const { from, to, empty } = state.selection.main;
+    const selectedText = state.sliceDoc(from, to);
+
+    // Check if selection is already a link [text](url)
+    const linkMatch = selectedText.match(/^\[([^\]]*)\]\(([^)]*)\)$/);
+    if (linkMatch) {
+      // Already a link - extract just the text and replace
+      const linkText = linkMatch[1] || "";
+      view.dispatch({
+        changes: { from, to, insert: linkText },
+        selection: { anchor: from, head: from + linkText.length },
+      });
+      return true;
+    }
+
+    // Check if we're inside a link by looking at surrounding context
+    const lineStart = state.doc.lineAt(from).from;
+    const lineEnd = state.doc.lineAt(to).to;
+    const lineText = state.sliceDoc(lineStart, lineEnd);
+
+    // Find link pattern in line that contains the selection
+    const linkRegex = /\[([^\]]*)\]\(([^)]*)\)/g;
+    let match;
+    while ((match = linkRegex.exec(lineText)) !== null) {
+      const matchFrom = lineStart + match.index;
+      const matchTo = matchFrom + match[0].length;
+
+      // Check if selection is within this link
+      if (from >= matchFrom && to <= matchTo) {
+        // Remove the link syntax, leave plain text
+        const linkText = match[1] || "";
+        view.dispatch({
+          changes: { from: matchFrom, to: matchTo, insert: linkText },
+          selection: { anchor: matchFrom, head: matchFrom + linkText.length },
+        });
+        return true;
+      }
+    }
+
+    if (empty) {
+      // No selection - insert []() and place cursor in brackets
+      view.dispatch({
+        changes: { from, insert: "[]()" },
+        selection: { anchor: from + 1 },
+      });
+    } else if (this.urlPattern.test(selectedText)) {
+      // Selected text is a URL - put it in parentheses, cursor in brackets
+      const newText = `[](${selectedText})`;
+      view.dispatch({
+        changes: { from, to, insert: newText },
+        selection: { anchor: from + 1 },
+      });
+    } else {
+      // Selected text is not a URL - wrap as link text, cursor in parentheses
+      const newText = `[${selectedText}]()`;
+      view.dispatch({
+        changes: { from, to, insert: newText },
+        selection: { anchor: from + selectedText.length + 3 },
+      });
+    }
+
+    return true;
   }
 
   buildDecorations(ctx: DecorationContext): void {
