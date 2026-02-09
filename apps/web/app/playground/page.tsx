@@ -182,13 +182,34 @@ export default function Page() {
   }, [currentContent, contents[currentContent]?.content]);
 
   function handleContentChange(id: string, content: string) {
-    setContents((c) => {
-      const updated = c.map((currentContent) =>
-        currentContent.id === id ? { ...currentContent, content } : currentContent
-      );
-      saveToStorage(updated, currentContent);
-      return updated;
-    });
+    // Clear any pending save
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+    if (savedIndicatorTimeoutRef.current) {
+      clearTimeout(savedIndicatorTimeoutRef.current);
+    }
+
+    setSaveStatus("saving");
+
+    // Debounce both state update and localStorage save
+    saveTimeoutRef.current = setTimeout(() => {
+      setContents((c) => {
+        const updated = c.map((currentContent) =>
+          currentContent.id === id ? { ...currentContent, content } : currentContent
+        );
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+        localStorage.setItem(STORAGE_CURRENT_KEY, currentContent.toString());
+        return updated;
+      });
+
+      setSaveStatus("saved");
+
+      // Reset to idle after showing "saved" for a bit
+      savedIndicatorTimeoutRef.current = setTimeout(() => {
+        setSaveStatus("idle");
+      }, 2000);
+    }, DEBOUNCE_MS);
   }
 
   function addNewContent(title: string) {
