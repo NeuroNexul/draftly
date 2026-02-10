@@ -90,6 +90,7 @@ export default function Page() {
 
   const [contents, setContents] = useState<Content[]>([]);
   const [currentContent, setCurrentContent] = useState<number>(-1);
+  const [output, setOutput] = useState<{ html: string; css: string } | null>(null);
 
   const [mode, setMode] = useState<"live" | "view" | "code" | "output">("live");
   const [showNodes, setShowNodes] = useState(false);
@@ -289,26 +290,30 @@ export default function Page() {
     [theme, mode, showNodes, config.editor, activePlugins]
   );
 
-  const content = useMemo(() => {
-    if (currentContent === -1 || !["view", "output"].includes(mode)) return { html: "", css: "" };
+  useEffect(() => {
+    (async function () {
+      if (currentContent === -1 || !["view", "output"].includes(mode)) return;
 
-    const html = preview(contents[currentContent]?.content || "", {
-      theme: theme && theme !== "system" ? (theme.includes("dark") ? ThemeEnum.DARK : ThemeEnum.LIGHT) : ThemeEnum.AUTO,
-      plugins: activePlugins,
-      markdown: [],
-      sanitize: config.preview.sanitize,
-      wrapperTag: "div",
-      wrapperClass: "draftly-preview h-full w-full max-w-[48rem] mx-auto overflow-auto",
-    });
+      const html = await preview(contents[currentContent]?.content || "", {
+        theme:
+          theme && theme !== "system" ? (theme.includes("dark") ? ThemeEnum.DARK : ThemeEnum.LIGHT) : ThemeEnum.AUTO,
+        plugins: activePlugins,
+        markdown: [],
+        sanitize: config.preview.sanitize,
+        wrapperTag: "div",
+        wrapperClass: "draftly-preview h-full w-full max-w-[48rem] mx-auto overflow-auto",
+      });
 
-    const css = generateCSS({
-      theme: theme && theme !== "system" ? (theme.includes("dark") ? ThemeEnum.DARK : ThemeEnum.LIGHT) : ThemeEnum.AUTO,
-      plugins: activePlugins,
-      wrapperClass: "draftly-preview",
-      includeBase: config.preview.includeBase,
-    });
+      const css = generateCSS({
+        theme:
+          theme && theme !== "system" ? (theme.includes("dark") ? ThemeEnum.DARK : ThemeEnum.LIGHT) : ThemeEnum.AUTO,
+        plugins: activePlugins,
+        wrapperClass: "draftly-preview",
+        includeBase: config.preview.includeBase,
+      });
 
-    return { html, css };
+      setOutput({ html, css });
+    })();
   }, [currentContent, contents, theme, mode, activePlugins, config.preview]);
 
   if (isLoading) {
@@ -376,8 +381,8 @@ export default function Page() {
           {currentContent !== -1 ? (
             mode === "view" ? (
               <div className="h-full w-full overflow-auto">
-                <style dangerouslySetInnerHTML={{ __html: content.css }} />
-                <div dangerouslySetInnerHTML={{ __html: content.html }} />
+                <style dangerouslySetInnerHTML={{ __html: output?.css || "" }} />
+                <div dangerouslySetInnerHTML={{ __html: output?.html || "" }} />
               </div>
             ) : mode === "output" ? (
               <div className="h-full w-full">
@@ -390,7 +395,7 @@ export default function Page() {
                       className={"h-full w-full"}
                       height="100%"
                       width="100%"
-                      value={content.html}
+                      value={output?.html || ""}
                       theme={theme?.includes("dark") ? githubDark : githubLight}
                       extensions={[html(), css(), EditorView.lineWrapping]}
                       readOnly
@@ -407,7 +412,7 @@ export default function Page() {
                       className={"h-full w-full"}
                       height="100%"
                       width="100%"
-                      value={content.css}
+                      value={output?.css || ""}
                       theme={theme?.includes("dark") ? githubDark : githubLight}
                       extensions={[css(), EditorView.lineWrapping]}
                       readOnly

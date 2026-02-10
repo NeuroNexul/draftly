@@ -9,7 +9,7 @@ import DOMPurify from "dompurify";
 export function createPreviewContext(
   doc: string,
   theme: ThemeEnum,
-  renderChildren: (node: SyntaxNode) => string,
+  renderChildren: (node: SyntaxNode) => Promise<string>,
   sanitizeHtml: boolean = true
 ): PreviewContext {
   return {

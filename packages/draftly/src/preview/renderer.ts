@@ -62,7 +62,7 @@ export class PreviewRenderer {
   /**
    * Render the document to HTML
    */
-  render(): string {
+  async render(): Promise<string> {
     // Collect markdown extensions from plugins
     const extensions = [
       ...this.markdown,
@@ -90,19 +90,19 @@ export class PreviewRenderer {
     const tree = parser.parse(this.doc);
 
     // Render from root
-    return this.renderNode(tree.topNode);
+    return await this.renderNode(tree.topNode);
   }
 
   /**
    * Render a single node to HTML
    */
-  private renderNode(node: SyntaxNode): string {
+  private async renderNode(node: SyntaxNode): Promise<string> {
     // Get plugins that handle this node type (O(1) lookup)
     const plugins = this.nodeToPlugins.get(node.name);
     if (plugins) {
       for (const plugin of plugins) {
-        const children = this.renderChildren(node);
-        const result = plugin.renderToHTML!(node, children, this.ctx);
+        const children = await this.renderChildren(node);
+        const result = await plugin.renderToHTML!(node, children, this.ctx);
         if (result !== null) {
           return result;
         }
@@ -112,13 +112,13 @@ export class PreviewRenderer {
     // Use default renderer
     const renderer = this.renderers[node.name];
     if (renderer) {
-      const children = this.renderChildren(node);
+      const children = await this.renderChildren(node);
       return renderer(node, children, this.ctx);
     }
 
     // Unknown node - render children or text
     if (node.firstChild) {
-      return this.renderChildren(node);
+      return await this.renderChildren(node);
     }
 
     // Leaf node - return text content
@@ -128,7 +128,7 @@ export class PreviewRenderer {
   /**
    * Render all children of a node, including text between nodes
    */
-  private renderChildren(node: SyntaxNode): string {
+  private async renderChildren(node: SyntaxNode): Promise<string> {
     let result = "";
     let pos = node.from; // Track position to find text gaps
     let child = node.firstChild;
@@ -140,7 +140,7 @@ export class PreviewRenderer {
       }
 
       // Render the child node
-      result += this.renderNode(child);
+      result += await this.renderNode(child);
 
       // Update position to end of this child
       pos = child.to;

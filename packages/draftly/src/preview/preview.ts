@@ -20,7 +20,7 @@ import { PreviewConfig } from "./types";
  * });
  * ```
  */
-export function preview(markdown: string, config: PreviewConfig = {}): string {
+export async function preview(markdown: string, config: PreviewConfig = {}): Promise<string> {
   const {
     plugins = [],
     markdown: markdownConfig = [],
@@ -32,7 +32,7 @@ export function preview(markdown: string, config: PreviewConfig = {}): string {
 
   // Create renderer and generate HTML
   const renderer = new PreviewRenderer(markdown, plugins, markdownConfig, theme, sanitize);
-  const content = renderer.render();
+  const content = await renderer.render();
 
   // Wrap in container
   const classAttr = wrapperClass ? ` class="${wrapperClass}"` : "";

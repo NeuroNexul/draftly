@@ -18,7 +18,7 @@ export interface PreviewContext {
   sanitize(html: string): string;
 
   /** Render children of a node to HTML */
-  renderChildren(node: SyntaxNode): string;
+  renderChildren(node: SyntaxNode): Promise<string>;
 }
 
 /**

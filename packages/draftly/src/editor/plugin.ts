@@ -215,7 +215,7 @@ export abstract class DraftlyPlugin {
     node: SyntaxNode,
     children: string,
     ctx: { sliceDoc(from: number, to: number): string; sanitize(html: string): string }
-  ): string | null;
+  ): string | null | Promise<string | null>;
 
   /**
    * Get CSS styles for preview mode
