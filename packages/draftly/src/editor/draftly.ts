@@ -184,19 +184,19 @@ export function draftly(config: DraftlyConfig = {}): Extension[] {
     // Theme styles
     ...(configThemeStyle ? [Prec.high(configThemeStyle)] : []),
 
-    // Core CodeMirror extensions
-    ...baseExtensions,
-
     // draftly view plugin for rich rendering
-    ...draftlyExtensions,
+    draftlyExtensions,
+
+    // Core CodeMirror extensions
+    baseExtensions,
 
     // Plugin extensions & keymaps
-    ...pluginExtensions,
+    pluginExtensions,
     pluginKeymaps.length > 0 ? keymap.of(pluginKeymaps) : [],
 
     // Config keymaps & extensions
     configKeymap.length > 0 ? keymap.of(configKeymap) : [],
-    ...extensions,
+    extensions,
   ];
 
   return composedExtensions;

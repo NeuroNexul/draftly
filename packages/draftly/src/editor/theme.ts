@@ -22,7 +22,7 @@ export const draftlyBaseTheme = EditorView.theme({
   },
 
   "&.cm-draftly .cm-content .cm-line": {
-    padding: 0,
+    paddingInline: 0,
   },
 
   "&.cm-draftly .cm-content .cm-widgetBuffer": {
