@@ -7,6 +7,7 @@ export { ListPlugin } from "./list-plugin";
 export { HTMLPlugin } from "./html-plugin";
 export { ImagePlugin } from "./image-plugin";
 export { MathPlugin } from "./math-plugin";
+export { MermaidPlugin } from "./mermaid-plugin";
 export { CodePlugin } from "./code-plugin";
 export { QuotePlugin } from "./quote-plugin";
 
@@ -20,6 +21,7 @@ import { ListPlugin } from "./list-plugin";
 import { HTMLPlugin } from "./html-plugin";
 import { ImagePlugin } from "./image-plugin";
 import { MathPlugin } from "./math-plugin";
+import { MermaidPlugin } from "./mermaid-plugin";
 import { CodePlugin } from "./code-plugin";
 import { QuotePlugin } from "./quote-plugin";
 
@@ -37,6 +39,7 @@ const essentialPlugins: DraftlyPlugin[] = [
   new HTMLPlugin(),
   new ImagePlugin(),
   new MathPlugin(),
+  new MermaidPlugin(),
   new CodePlugin(),
   new QuotePlugin(),
 ];
