@@ -351,7 +351,7 @@ const theme = createTheme({
       borderBottom: "1px solid var(--color-border)",
     },
 
-    ".cm-draftly-mermaid-block::before": {
+    ".cm-draftly-mermaid-block:not(.cm-draftly-mermaid-block-rendered)::before": {
       content: "attr(data-line-num)",
       position: "absolute",
       left: "0.5rem",
