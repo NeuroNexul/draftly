@@ -29,3 +29,34 @@ export const draftlyBaseTheme = EditorView.theme({
     display: "none !important",
   },
 });
+
+import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
+import { tags as t } from "@lezer/highlight";
+
+/**
+ * Reset syntax highlighting for markdown elements
+ * Used to disable theme colors for markdown syntax
+ */
+const markdownResetStyle = HighlightStyle.define([
+  {
+    tag: [
+      t.heading,
+      t.strong,
+      t.emphasis,
+      t.strikethrough,
+      t.link,
+      t.url,
+      t.quote,
+      t.list,
+      t.meta,
+      t.contentSeparator,
+      t.labelName,
+    ],
+    color: "inherit",
+    fontWeight: "inherit",
+    fontStyle: "inherit",
+    textDecoration: "none",
+  },
+]);
+
+export const markdownResetExtension = syntaxHighlighting(markdownResetStyle, { fallback: false });

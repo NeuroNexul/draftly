@@ -8,6 +8,7 @@ import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirro
 import { indentOnInput } from "@codemirror/language";
 import { languages } from "@codemirror/language-data";
 import { ThemeEnum } from "./utils";
+import { markdownResetExtension } from "./theme";
 
 /**
  * DraftlyNode: represents a node in the markdown tree
@@ -171,8 +172,10 @@ export function draftly(config: DraftlyConfig = {}): Extension[] {
 
   // draftly extensions (pass plugins for decoration support)
   const draftlyExtensions: Extension[] = [];
-  if (!disableViewPlugin)
+  if (!disableViewPlugin) {
     draftlyExtensions.push(createDraftlyViewExtension(configTheme, baseStyles, allPlugins, configOnNodesChange));
+    draftlyExtensions.push(Prec.highest(markdownResetExtension));
+  }
   if (!disableViewPlugin || configLineWrapping) draftlyExtensions.push(EditorView.lineWrapping);
 
   // Compose all extensions together
