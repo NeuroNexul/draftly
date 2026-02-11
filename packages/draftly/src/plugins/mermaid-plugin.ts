@@ -1,7 +1,7 @@
 import { Decoration, EditorView, WidgetType } from "@codemirror/view";
 import { syntaxTree } from "@codemirror/language";
 import { DecorationContext, DecorationPlugin } from "../editor/plugin";
-import { createTheme } from "../editor";
+import { createTheme, ThemeEnum } from "../editor";
 import { SyntaxNode } from "@lezer/common";
 import { tags } from "@lezer/highlight";
 import type { MarkdownConfig, BlockParser, Line, BlockContext } from "@lezer/markdown";
@@ -12,22 +12,59 @@ import mermaid from "mermaid";
  */
 mermaid.initialize({
   startOnLoad: false,
-  theme: "forest",
+  theme: "default",
+  suppressErrorRendering: true,
 });
 
 /**
  * Render a mermaid diagram definition to SVG
  */
 let mermaidCounter = 0;
-async function renderMermaid(definition: string): Promise<{ svg: string; error: string | null }> {
+async function renderMermaid(
+  definition: string,
+  options: Record<string, string> = {},
+  defaultTheme: string = "default"
+): Promise<{ svg: string; error: string | null }> {
   try {
     const id = `draftly-mermaid-${mermaidCounter++}`;
-    const { svg } = await mermaid.render(id, definition);
+    let finalDefinition = definition;
+
+    // transform theme to mermaid config
+    const mermaidConfig: Record<string, string> = {};
+    if (options.theme) {
+      mermaidConfig.theme = options.theme;
+    } else {
+      mermaidConfig.theme = defaultTheme;
+    }
+
+    // If we have config to apply, prepend the directive
+    if (Object.keys(mermaidConfig).length > 0) {
+      const jsonConfig = JSON.stringify(mermaidConfig);
+      // Mermaid directive format: %%{init: { ... }}%%
+      finalDefinition = `%%{init: ${jsonConfig} }%%\n${definition}`;
+    }
+
+    const { svg } = await mermaid.render(id, finalDefinition);
     return { svg, error: null };
   } catch (e) {
     const errorMsg = e instanceof Error ? e.message : "Unknown error";
     return { svg: "", error: errorMsg };
   }
+}
+
+/**
+ * Helper to parse attributes from fence line
+ * Example: ```mermaid theme="dark" scale="2"
+ */
+function parseAttributes(fenceLine: string): Record<string, string> {
+  const attributes: Record<string, string> = {};
+  // Match key="value" or key='value'
+  const regex = /(\w+)=["']([^"']*)["']/g;
+  let match;
+  while ((match = regex.exec(fenceLine)) !== null && match[1] && match[2]) {
+    attributes[match[1]] = match[2];
+  }
+  return attributes;
 }
 
 /**
@@ -48,6 +85,8 @@ const mermaidMarkDecorations = {
 class MermaidBlockWidget extends WidgetType {
   constructor(
     readonly definition: string,
+    readonly attributes: Record<string, string>,
+    readonly defaultTheme: string,
     readonly from: number,
     readonly to: number
   ) {
@@ -55,7 +94,13 @@ class MermaidBlockWidget extends WidgetType {
   }
 
   override eq(other: MermaidBlockWidget): boolean {
-    return other.definition === this.definition && other.from === this.from && other.to === this.to;
+    return (
+      other.definition === this.definition &&
+      JSON.stringify(other.attributes) === JSON.stringify(this.attributes) &&
+      other.defaultTheme === this.defaultTheme &&
+      other.from === this.from &&
+      other.to === this.to
+    );
   }
 
   toDOM(view: EditorView) {
@@ -67,7 +112,8 @@ class MermaidBlockWidget extends WidgetType {
     div.innerHTML = `<div class="cm-draftly-mermaid-loading">Rendering diagram…</div>`;
 
     // Render mermaid asynchronously
-    renderMermaid(this.definition).then(({ svg, error }) => {
+    // Render mermaid asynchronously
+    renderMermaid(this.definition, this.attributes, this.defaultTheme).then(({ svg, error }) => {
       if (error) {
         div.className += " cm-draftly-mermaid-error";
         div.innerHTML = `<span>[Mermaid Error: ${error}]</span>`;
@@ -113,8 +159,9 @@ const mermaidBlockParser: BlockParser = {
     if (!trimmed.startsWith("```mermaid")) return false;
 
     // Ensure nothing meaningful after ```mermaid (allow trailing whitespace)
-    const rest = trimmed.slice(10);
-    if (rest.trim().length > 0) return false;
+    // We now allow attributes, so we don't strictly check for empty rest
+    // const rest = trimmed.slice(10);
+    // if (rest.trim().length > 0) return false;
 
     const startLine = cx.lineStart;
     let endPos = -1;
@@ -203,6 +250,8 @@ export class MermaidPlugin extends DecorationPlugin {
   buildDecorations(ctx: DecorationContext): void {
     const { view, decorations } = ctx;
     const tree = syntaxTree(view.state);
+    const config = this.context?.config;
+    const currentTheme = config?.theme === ThemeEnum.DARK ? "dark" : "default";
 
     tree.iterate({
       enter: (node) => {
@@ -217,6 +266,10 @@ export class MermaidPlugin extends DecorationPlugin {
             .slice(1, -1) // Remove first and last lines (the markers)
             .join("\n")
             .trim();
+
+          const docLines = content.split("\n");
+          const fenceLine = docLines[0] || "";
+          const attributes = parseAttributes(fenceLine);
 
           const nodeLineStart = view.state.doc.lineAt(from);
           const nodeLineEnd = view.state.doc.lineAt(to);
@@ -262,7 +315,7 @@ export class MermaidPlugin extends DecorationPlugin {
           // Always add the rendered widget below the block
           decorations.push(
             Decoration.widget({
-              widget: new MermaidBlockWidget(definition, from, to),
+              widget: new MermaidBlockWidget(definition, attributes, currentTheme, from, to),
               side: 1,
               block: false,
             }).range(to)
@@ -299,7 +352,13 @@ export class MermaidPlugin extends DecorationPlugin {
       const lines = content.split("\n");
       const definition = lines.length > 1 ? lines.slice(1, -1).join("\n").trim() : "";
 
-      const { svg, error } = await renderMermaid(definition);
+      const fenceLine = lines[0] || "";
+      const attributes = parseAttributes(fenceLine);
+
+      const config = this.context?.config;
+      const currentTheme = config?.theme === ThemeEnum.DARK ? "dark" : "default";
+
+      const { svg, error } = await renderMermaid(definition, attributes, currentTheme);
 
       if (error) {
         return `<div class="cm-draftly-mermaid-error">${ctx.sanitize(`[Mermaid Error: ${error}]`)}</div>`;
@@ -365,7 +424,7 @@ const theme = createTheme({
       userSelect: "none",
     },
 
-    ".cm-draftly-mermaid-block br": {
+    ".cm-draftly-mermaid-block.cm-draftly-mermaid-block-rendered br": {
       display: "none",
     },
 
