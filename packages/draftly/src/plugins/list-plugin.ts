@@ -485,5 +485,8 @@ const theme = createTheme({
     ".cm-draftly-preview li:has(.cm-draftly-task-checkbox)": {
       listStyleType: "none",
     },
+    ".cm-draftly-preview li .cm-draftly-paragraph": {
+      padding: "0",
+    },
   },
 });
