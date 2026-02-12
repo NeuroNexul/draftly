@@ -91,7 +91,7 @@ const theme = createTheme({
       "&::after": {
         content: '""',
         flex: "1",
-        height: "1px",
+        height: "2px",
         background: "currentColor",
         opacity: "0.3",
       },
