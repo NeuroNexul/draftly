@@ -10,6 +10,7 @@ export { MathPlugin } from "./math-plugin";
 export { MermaidPlugin } from "./mermaid-plugin";
 export { CodePlugin } from "./code-plugin";
 export { QuotePlugin } from "./quote-plugin";
+export { HRPlugin } from "./hr-plugin";
 
 // Plugin collections
 import { DraftlyPlugin } from "../editor/plugin";
@@ -24,6 +25,7 @@ import { MathPlugin } from "./math-plugin";
 import { MermaidPlugin } from "./mermaid-plugin";
 import { CodePlugin } from "./code-plugin";
 import { QuotePlugin } from "./quote-plugin";
+import { HRPlugin } from "./hr-plugin";
 
 /**
  * Default plugins
@@ -42,6 +44,7 @@ const essentialPlugins: DraftlyPlugin[] = [
   new MermaidPlugin(),
   new CodePlugin(),
   new QuotePlugin(),
+  new HRPlugin(),
 ];
 
 /**
