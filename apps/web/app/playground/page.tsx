@@ -271,7 +271,6 @@ export default function Page() {
       draftly({
         theme:
           theme && theme !== "system" ? (theme.includes("dark") ? ThemeEnum.DARK : ThemeEnum.LIGHT) : ThemeEnum.AUTO,
-        themeStyle: theme && theme.includes("dark") ? githubDark : githubLight,
         baseStyles: config.editor.baseStyles,
         plugins: activePlugins,
         markdown: [],
@@ -434,6 +433,7 @@ export default function Page() {
                 width="100%"
                 value={contents[currentContent]?.content}
                 onChange={(value) => handleContentChange(contents[currentContent]!.id, value)}
+                theme={theme?.includes("dark") ? githubDark : githubLight}
                 extensions={[...defaultExtensions]}
                 basicSetup={{
                   lineNumbers: mode === "code",
