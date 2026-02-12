@@ -874,6 +874,7 @@ const theme = createTheme({
       position: "relative",
       overflow: "hidden",
       borderTop: "1px solid var(--color-border)",
+      paddingBottom: "0.5rem !important",
     },
 
     // Remove top radius when header is present
