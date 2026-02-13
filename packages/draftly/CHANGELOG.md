@@ -1,5 +1,11 @@
 # draftly
 
+## 1.0.0-alpha.2
+
+### Major Changes
+
+- 17ee4e8: Added multiple plugins and fixes
+
 ## 0.1.0-alpha.1
 
 ### Minor Changes

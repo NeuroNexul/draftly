@@ -9,6 +9,7 @@
     "@workspace/ui": "0.0.0"
   },
   "changesets": [
+    "bumpy-spoons-report",
     "hot-rabbits-rush",
     "soft-buckets-arrive"
   ]
