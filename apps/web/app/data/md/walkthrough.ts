@@ -6,23 +6,24 @@ export default `
 This walkthrough covers every feature, plugin, and API surface area. Let's dive in.
 
 ---
-
 ## 1. Getting Started
-
 ### Installation
 Install the package via npm:
+
 \`\`\`shell title="npm"
 npm install draftly
 \`\`\`
 
 #### Peer Dependencies
 Draftly requires the following CodeMirror 6 peer dependencies:
+
 \`\`\`shell title="peer deps" line-numbers
 npm install @codemirror/commands @codemirror/lang-markdown @codemirror/language @codemirror/language-data @codemirror/state @codemirror/view
 \`\`\`
 
 ### Minimal Setup
 The \`draftly()\` function returns a CodeMirror extension bundle. Drop it into any \`EditorView\`:
+
 \`\`\`ts title="main.ts" line-numbers caption="This is all you need to get a rich editor up and running."
 import { EditorView } from "@codemirror/view";
 import { EditorState } from "@codemirror/state";
@@ -39,10 +40,10 @@ const view = new EditorView({
 \`\`\`
 
 ---
-
 ## 2. Configuration
 The \`draftly()\` function accepts a \`DraftlyConfig\` object. Here is a full example with all options:
-\`\`\`ts title="config.ts" line-numbers {3-14}
+
+\`\`\`ts title="config.ts" line-numbers {4-15}
 import { draftly } from "draftly/editor";
 import { allPlugins } from "draftly/plugins";
 
@@ -63,7 +64,6 @@ const extensions = draftly({
 > Setting \`disableViewPlugin: true\` turns Draftly into a plain Markdown editor — no decorations, no widgets, just raw text.
 
 ---
-
 ## 3. Modular Exports
 Draftly ships three entry points so you can import only what you need:
 
@@ -74,7 +74,6 @@ Draftly ships three entry points so you can import only what you need:
 | \`draftly/preview\`  | Server-side \`preview()\` renderer + \`generateCSS()\` |
 
 ---
-
 ## 4. The Plugin System
 Every feature in Draftly is a **plugin**. Plugins extend the abstract \`DraftlyPlugin\` class and can:
 
@@ -106,24 +105,21 @@ class MyPlugin extends DraftlyPlugin {
 \`\`\`
 
 ---
-
 ## 5. Built-in Plugins — Full Reference
 
-Draftly ships with **11** built-in plugins. Each one handles specific Markdown constructs, provides keyboard shortcuts, applies theming, and renders to HTML for the preview.
+Draftly ships with **12** built-in plugins. Each one handles specific Markdown constructs, provides keyboard shortcuts, applies theming, and renders to HTML for the preview.
 
 ---
-
 ### 5.1 ParagraphPlugin
 Adds vertical spacing between paragraphs for visual breathing room.
 
 This is a simple paragraph. Notice the comfortable spacing between blocks of text.
 
 ---
-
 ### 5.2 HeadingPlugin
 Renders ATX headings (\`#\` through \`######\`) with proportional font sizes.
 
-**Behavior:** The \`#\` markers are *hidden* when the cursor is **outside** the heading, and revealed when editing.
+**Behaviour:** The \`#\` markers are *hidden* when the cursor is **outside** the heading, and revealed when editing.
 
 # Heading 1
 ## Heading 2
@@ -133,22 +129,21 @@ Renders ATX headings (\`#\` through \`######\`) with proportional font sizes.
 ###### Heading 6
 
 ---
-
 ### 5.3 InlinePlugin
 Handles inline text formatting with smart marker toggling. Formatting markers are hidden when the cursor is outside the styled range.
 
-| Format        | Syntax         | Shortcut           | Example |
-|---------------|----------------|--------------------|---------|
-| **Bold**      | \`**text**\`     | \`Ctrl/Cmd + B\`     | **Bold** |
-| *Italic*      | \`*text*\`       | \`Ctrl/Cmd + I\`     | *Italic* |
-| ~~Strike~~    | \`~~text~~\`     | \`Ctrl/Cmd+Shift+S\` | ~~Strikethrough~~ |
-| ~Subscript~   | \`~text~\`       | \`Ctrl/Cmd + ,\`     | H~2~O |
-| ^Superscript^ | \`^text^\`       | \`Ctrl/Cmd + .\`     | E = mc^2^ |
+| Format        | Syntax         | Shortcut             | Example |
+|---------------|----------------|----------------------|---------|
+| **Bold**      | \`**text**\`     | \`Ctrl/Cmd + B\`       | **Bold** |
+| *Italic*      | \`*text*\`       | \`Ctrl/Cmd + I\`       | *Italic* |
+| ~~Strike~~    | \`~~text~~\`     | \`Ctrl/Cmd + Shift+S\` | ~~Strikethrough~~ |
+| ==Highlight== | \`==text==\`     | \`Ctrl/Cmd + Shift+H\` | ==Highlighted Text== |
+| ~Subscript~   | \`~text~\`       | \`Ctrl/Cmd + ,\`       | H~2~O |
+| ^Superscript^ | \`^text^\`       | \`Ctrl/Cmd + .\`       | E = mc^2^ |
 
-Combine them freely: ***Bold Italian***, ~~**Struck Bold**~~
+Combine them freely: ***Bold Italic***, ~~**Struck Bold**~~, ==**Bold Highlight**==
 
 ---
-
 ### 5.4 LinkPlugin
 Full [link](https://draftly.dev) support with interactive hover tooltips and smart insertion.
 
@@ -158,10 +153,9 @@ Full [link](https://draftly.dev) support with interactive hover tooltips and sma
 - **Ctrl+Click** a link to open it in a new tab
 - **\`Ctrl/Cmd + K\`** to insert/toggle a link
 
-[Visit Draftly](https://github.com/neuronexul/draftly "The Draftly Github Repo")
+[Visit Draftly](https://github.com/neuronexul/draftly)
 
 ---
-
 ### 5.5 ListPlugin
 Supports unordered lists, ordered lists, and task lists with interactive checkboxes.
 
@@ -190,7 +184,6 @@ Supports unordered lists, ordered lists, and task lists with interactive checkbo
 - [ ] Create custom plugin
 
 ---
-
 ### 5.6 ImagePlugin
 Renders images inline with figure/figcaption semantics and lazy loading.
 
@@ -200,10 +193,9 @@ Renders images inline with figure/figcaption semantics and lazy loading.
 
 ![Draftly Placeholder](https://res.cloudinary.com/djoo8ogmp/image/upload/v1746213279/uploaded/image_yjzjdl.png "A beautiful Minecraft sunset")
 
-**Behavior:** The image is always rendered below the syntax. When you click the image, it reveals the raw markdown for editing. Broken images show a helpful error message.
+**Behaviour:** The image is always rendered below the syntax. When you click the image, it reveals the raw markdown for editing. Broken images show a helpful error message.
 
 ---
-
 ### 5.7 CodePlugin
 The most feature-rich plugin. Handles both inline code and fenced code blocks with syntax highlighting, line numbers, highlights, title, caption, and copy button.
 
@@ -217,7 +209,7 @@ Use backticks for inline code: \`const x = 42;\` — the backticks are hidden wh
 | Code block       | \`Ctrl/Cmd + Shift+E\` |
 
 #### Fenced Code Blocks
-The CodeInfo line (after \`\\\`\\\`\\\`\`) supports these properties:
+The CodeInfo line (after \` \` \` \`) supports these properties:
 
 | Property       | Syntax                | Description |
 |----------------|-----------------------|-------------|
@@ -251,7 +243,7 @@ export function Counter() {
 \`\`\`
 
 #### Example: Python with Line Highlights
-\`\`\`python line-numbers title="fibonacci.py" {3-5} /fibonacci/
+\`\`\`python line-numbers title="fibonacci.py" {4-6} /fibonacci/
 def fibonacci(n):
     """Generate Fibonacci sequence up to n terms."""
     a, b = 0, 1
@@ -264,7 +256,6 @@ for num in fibonacci(10):
 \`\`\`
 
 ---
-
 ### 5.8 QuotePlugin
 Renders blockquotes with a styled left border. The \`>\` markers are hidden when the cursor moves away.
 
@@ -273,7 +264,6 @@ Renders blockquotes with a styled left border. The \`>\` markers are hidden when
 > — Chinese Proverb
 
 ---
-
 ### 5.9 MathPlugin (KaTeX)
 Renders LaTeX math expressions using **KaTeX**. Supports both inline and block (display) modes with custom parsers.
 
@@ -297,9 +287,8 @@ $$
 $$
 
 ---
-
 ### 5.10 MermaidPlugin
-Renders **Mermaid** diagrams from fenced code blocks with \`\\\`\\\`\\\`mermaid\` syntax. Supports \`theme\` attributes and asynchronous rendering with loading states.
+Renders **Mermaid** diagrams from fenced code blocks with \` \`\`\`mermaid\` syntax. Supports \`theme\` attributes and asynchronous rendering with loading states.
 
 \`\`\`mermaid
 graph TD
@@ -312,7 +301,6 @@ graph TD
 Diagrams are rendered live below the code block. Click the rendered diagram to edit the definition.
 
 ---
-
 ### 5.11 HTMLPlugin
 Supports raw HTML in markdown — both **inline elements** and **block-level elements**. Uses **DOMPurify** for sanitization.
 
@@ -326,7 +314,6 @@ This has an <span style="color: #FF6B6B; font-weight: bold;">inline styled span<
 </div>
 
 ---
-
 ## 6. Static Preview (Server-Side Rendering)
 Draftly's **preview** module renders Markdown to semantic HTML — perfect for server-side rendering, export, or static site generation.
 
@@ -351,6 +338,7 @@ console.log(html);
 
 ### Generating CSS
 Use \`generateCSS()\` to extract all plugin styles for the preview:
+
 \`\`\`ts title="css-gen.ts" line-numbers
 import { generateCSS } from "draftly/preview";
 import { allPlugins } from "draftly/plugins";
@@ -364,7 +352,6 @@ const css = generateCSS({
 \`\`\`
 
 ---
-
 ## 7. Theming
 Plugins use a **three-layer theme** system via \`createTheme()\`:
 
@@ -397,7 +384,6 @@ const myTheme = createTheme({
 \`\`\`
 
 ---
-
 ## 8. Keyboard Shortcuts — Quick Reference
 
 | Action               | Shortcut              |
@@ -405,6 +391,7 @@ const myTheme = createTheme({
 | **Bold**             | \`Ctrl/Cmd + B\`        |
 | **Italic**           | \`Ctrl/Cmd + I\`        |
 | **Strikethrough**    | \`Ctrl/Cmd + Shift + S\` |
+| **Highlight**        | \`Ctrl/Cmd + Shift + H\` |
 | **Subscript**        | \`Ctrl/Cmd + ,\`        |
 | **Superscript**      | \`Ctrl/Cmd + .\`        |
 | **Inline Code**      | \`Ctrl/Cmd + E\`        |
@@ -418,7 +405,6 @@ const myTheme = createTheme({
 | **Redo**             | \`Ctrl/Cmd + Shift + Z\` |
 
 ---
-
 ## 9. Architecture Overview
 Draftly is built on a clean, layered architecture:
 
@@ -443,7 +429,6 @@ graph LR
 - **Preview Parity** — The same plugins that decorate the editor also render the static HTML preview
 
 ---
-
 ## 10. Summary
 Draftly brings the best of both worlds: the **precision of Markdown** and the **fluidity of a WYSIWYG editor**. With its modular plugin system, full keyboard shortcut coverage, dark/light theming, and dual editor + preview rendering — it's a complete solution for modern Markdown editing.
 
@@ -452,6 +437,7 @@ Draftly brings the best of both worlds: the **precision of Markdown** and the **
 | Headings (1—6)    | ✅     |
 | Bold / Italic     | ✅     |
 | Strikethrough     | ✅     |
+| Highlight         | ✅     |
 | Sub / Superscript | ✅     |
 | Links             | ✅     |
 | Images            | ✅     |

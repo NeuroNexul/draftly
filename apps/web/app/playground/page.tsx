@@ -15,7 +15,7 @@ import { Content } from "./types";
 import CreateContentDialog from "./create-content-dialog";
 
 import whatIsDraftly from "../data/md/what-id-draftly";
-import workthrough from "../data/md/workthrough";
+import walkthrough from "../data/md/walkthrough";
 
 import CodeMirror, { EditorView, Extension, ReactCodeMirrorRef } from "@uiw/react-codemirror";
 import { githubDark, githubLight } from "@uiw/codemirror-theme-github";
@@ -125,8 +125,8 @@ export default function Page() {
         },
         {
           id: uuid(),
-          title: "Workthrough",
-          content: workthrough,
+          title: "Walkthrough",
+          content: walkthrough,
         },
       ];
       setContents(defaultContents);
