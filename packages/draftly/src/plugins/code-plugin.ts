@@ -183,9 +183,9 @@ class CodeBlockCaptionWidget extends WidgetType {
     return this.caption === other.caption;
   }
 
-  /** Ignore all events (caption is non-interactive). */
+  /** Allow click events to propagate for caption interaction. */
   override ignoreEvent(): boolean {
-    return true;
+    return false;
   }
 }
 
