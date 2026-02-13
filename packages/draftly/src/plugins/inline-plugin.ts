@@ -4,6 +4,8 @@ import { DecorationContext, DecorationPlugin } from "../editor/plugin";
 import { createTheme } from "../editor";
 import { SyntaxNode } from "@lezer/common";
 import { toggleMarkdownStyle } from "../editor/utils";
+import { tags } from "@lezer/highlight";
+import type { MarkdownConfig, InlineParser } from "@lezer/markdown";
 
 /**
  * Node types for inline styling in markdown
@@ -14,6 +16,7 @@ const INLINE_TYPES = {
   Strikethrough: "strikethrough",
   Subscript: "subscript",
   Superscript: "superscript",
+  Highlight: "highlight",
 } as const;
 
 /**
@@ -25,8 +28,47 @@ const inlineMarkDecorations = {
   strikethrough: Decoration.mark({ class: "cm-draftly-strikethrough" }),
   subscript: Decoration.mark({ class: "cm-draftly-subscript" }),
   superscript: Decoration.mark({ class: "cm-draftly-superscript" }),
-  // Markers (* _ ~~ ^ ~)
+  highlight: Decoration.mark({ class: "cm-draftly-highlight" }),
+  // Markers (* _ ~~ ^ ~ ==)
   "inline-mark": Decoration.mark({ class: "cm-draftly-inline-mark" }),
+};
+
+// Character code for '='
+const EQUALS = 61;
+
+/**
+ * Inline parser for highlight syntax: ==text==
+ */
+const highlightParser: InlineParser = {
+  name: "Highlight",
+  parse(cx, next, pos) {
+    // Must start with ==
+    if (next !== EQUALS || cx.char(pos + 1) !== EQUALS) return -1;
+    // Don't match === (or more)
+    if (cx.char(pos + 2) === EQUALS) return -1;
+
+    // Find the closing ==
+    let end = pos + 2;
+    while (end < cx.end - 1) {
+      if (cx.char(end) === EQUALS && cx.char(end + 1) === EQUALS) {
+        // Don't match === (adjacent)
+        if (end + 2 < cx.end && cx.char(end + 2) === EQUALS) {
+          end++;
+          continue;
+        }
+
+        // Must have content between markers
+        if (end === pos + 2) return -1;
+
+        const openMark = cx.elt("HighlightMark", pos, pos + 2);
+        const closeMark = cx.elt("HighlightMark", end, end + 2);
+        return cx.addElement(cx.elt("Highlight", pos, end + 2, [openMark, closeMark]));
+      }
+      end++;
+    }
+
+    return -1;
+  },
 };
 
 /**
@@ -38,6 +80,7 @@ const inlineMarkDecorations = {
  * - Strikethrough - ~~text~~
  * - Subscript - ~text~
  * - Superscript - ^text^
+ * - Highlight - ==text==
  *
  * Hides formatting markers when cursor is not in the element
  */
@@ -51,10 +94,12 @@ export class InlinePlugin extends DecorationPlugin {
     "Strikethrough",
     "Subscript",
     "Superscript",
+    "Highlight",
     "EmphasisMark",
     "StrikethroughMark",
     "SubscriptMark",
     "SuperscriptMark",
+    "HighlightMark",
   ] as const;
   marks: string[] = [];
 
@@ -103,7 +148,25 @@ export class InlinePlugin extends DecorationPlugin {
         run: toggleMarkdownStyle("^"),
         preventDefault: true,
       },
+      {
+        key: "Mod-Shift-h",
+        run: toggleMarkdownStyle("=="),
+        preventDefault: true,
+      },
     ];
+  }
+
+  /**
+   * Return markdown parser extensions for highlight syntax (==text==)
+   */
+  override getMarkdownConfig(): MarkdownConfig {
+    return {
+      defineNodes: [
+        { name: "Highlight", style: tags.emphasis },
+        { name: "HighlightMark", style: tags.processingInstruction },
+      ],
+      parseInline: [highlightParser],
+    };
   }
 
   /**
@@ -156,6 +219,8 @@ export class InlinePlugin extends DecorationPlugin {
         return ["SubscriptMark"];
       case "Superscript":
         return ["SuperscriptMark"];
+      case "Highlight":
+        return ["HighlightMark"];
       default:
         return [];
     }
@@ -209,7 +274,14 @@ const theme = createTheme({
       verticalAlign: "super",
     },
 
-    // Inline markers (* _ ~~ ^ ~) - hidden when not focused
+    // Highlight
+    ".cm-draftly-highlight": {
+      backgroundColor: "rgba(255, 213, 0, 0.35)",
+      borderRadius: "2px",
+      padding: "1px 2px",
+    },
+
+    // Inline markers (* _ ~~ ^ ~ ==) - hidden when not focused
     ".cm-draftly-inline-mark": {
       display: "none",
     },
