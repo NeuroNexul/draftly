@@ -28,14 +28,14 @@ const COPY_RESET_DELAY = 2000;
 const codeMarkDecorations = {
   // Inline code
   "inline-code": Decoration.mark({ class: "cm-draftly-code-inline" }),
-  "inline-mark": Decoration.mark({ class: "cm-draftly-code-mark" }),
+  "inline-mark": Decoration.replace({}),
 
   // Fenced code block
   "code-block-line": Decoration.line({ class: "cm-draftly-code-block-line" }),
   "code-block-line-start": Decoration.line({ class: "cm-draftly-code-block-line-start" }),
   "code-block-line-end": Decoration.line({ class: "cm-draftly-code-block-line-end" }),
   "code-fence": Decoration.mark({ class: "cm-draftly-code-fence" }),
-  "code-hidden": Decoration.mark({ class: "cm-draftly-code-hidden" }),
+  "code-hidden": Decoration.replace({}),
 
   // Highlights
   "code-line-highlight": Decoration.line({ class: "cm-draftly-code-line-highlight" }),
@@ -849,11 +849,6 @@ const theme = createTheme({
       borderRadius: "3px",
     },
 
-    // Hidden inline code marks (backticks)
-    ".cm-draftly-code-inline .cm-draftly-code-mark": {
-      visibility: "hidden",
-    },
-
     // Fenced code block lines
     ".cm-draftly-code-block-line": {
       "--radius": "0.375rem",
@@ -969,12 +964,6 @@ const theme = createTheme({
     ".cm-draftly-code-fence": {
       color: "#6a737d",
       fontFamily: "var(--font-jetbrains-mono, monospace)",
-    },
-
-    // Hidden fence markers (when cursor not in range)
-    ".cm-draftly-code-hidden": {
-      // visibility: "hidden",
-      display: "none",
     },
 
     // Line numbers

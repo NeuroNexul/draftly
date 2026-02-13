@@ -12,7 +12,7 @@ const hrLineDecoration = Decoration.line({ class: "cm-draftly-hr-line" });
 /**
  * Mark decoration to hide raw markers (---, ***, ___) when unfocused
  */
-const hrMarkDecoration = Decoration.mark({ class: "cm-draftly-hr-mark" });
+const hrMarkDecoration = Decoration.replace({});
 
 /**
  * HRPlugin - Decorates markdown horizontal rules
@@ -63,7 +63,9 @@ export class HRPlugin extends DecorationPlugin {
         // Hide the raw markers when cursor is not on the line
         const cursorInNode = ctx.selectionOverlapsRange(from, to);
         if (!cursorInNode) {
-          decorations.push(hrMarkDecoration.range(from, to));
+          // Clamp to line end so replace decoration never spans a newline
+          const markEnd = Math.min(to, line.to);
+          decorations.push(hrMarkDecoration.range(from, markEnd));
         }
       },
     });
@@ -95,11 +97,6 @@ const theme = createTheme({
         background: "currentColor",
         opacity: "0.3",
       },
-    },
-
-    // Hidden marker text (---, ***, ___)
-    ".cm-draftly-hr-mark": {
-      display: "none",
     },
   },
 });

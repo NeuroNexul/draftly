@@ -30,7 +30,7 @@ const inlineMarkDecorations = {
   superscript: Decoration.mark({ class: "cm-draftly-superscript" }),
   highlight: Decoration.mark({ class: "cm-draftly-highlight" }),
   // Markers (* _ ~~ ^ ~ ==)
-  "inline-mark": Decoration.mark({ class: "cm-draftly-inline-mark" }),
+  "inline-mark": Decoration.replace({}),
 };
 
 // Character code for '='
@@ -279,11 +279,6 @@ const theme = createTheme({
       backgroundColor: "rgba(255, 213, 0, 0.35)",
       borderRadius: "2px",
       padding: "1px 2px",
-    },
-
-    // Inline markers (* _ ~~ ^ ~ ==) - hidden when not focused
-    ".cm-draftly-inline-mark": {
-      display: "none",
     },
   },
 });

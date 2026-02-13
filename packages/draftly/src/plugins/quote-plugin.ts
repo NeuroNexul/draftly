@@ -9,7 +9,7 @@ import { SyntaxNode } from "@lezer/common";
  */
 const quoteMarkDecorations = {
   /** Decoration for the > marker */
-  "quote-mark": Decoration.mark({ class: "cm-draftly-quote-mark" }),
+  "quote-mark": Decoration.replace({}),
   /** Decoration for the quote content */
   "quote-content": Decoration.mark({ class: "cm-draftly-quote-content" }),
 };
@@ -83,7 +83,7 @@ export class QuotePlugin extends DecorationPlugin {
         const cursorInNode = ctx.selectionOverlapsRange(from, to);
         if (!cursorInNode) {
           // Find all QuoteMark children (> symbols)
-          this.hideQuoteMarks(node.node, decorations);
+          this.hideQuoteMarks(node.node, decorations, view);
         }
       },
     });
@@ -92,15 +92,22 @@ export class QuotePlugin extends DecorationPlugin {
   /**
    * Recursively find and hide quote marks
    */
-  private hideQuoteMarks(node: SyntaxNode, decorations: import("@codemirror/state").Range<Decoration>[]): void {
+  private hideQuoteMarks(
+    node: SyntaxNode,
+    decorations: import("@codemirror/state").Range<Decoration>[],
+    view: import("@codemirror/view").EditorView
+  ): void {
     let child = node.firstChild;
     while (child) {
       if (child.name === "QuoteMark") {
-        decorations.push(quoteMarkDecorations["quote-mark"].range(child.from, child.to + 1));
+        // Clamp to line end so replace decoration never spans a newline
+        const line = view.state.doc.lineAt(child.from);
+        const markEnd = Math.min(child.to + 1, line.to);
+        decorations.push(quoteMarkDecorations["quote-mark"].range(child.from, markEnd));
       }
       // Recurse into nested blockquotes
       if (child.name === "Blockquote") {
-        this.hideQuoteMarks(child, decorations);
+        this.hideQuoteMarks(child, decorations, view);
       }
       child = child.nextSibling;
     }
@@ -134,11 +141,6 @@ const theme = createTheme({
     // Quote content styling
     ".cm-draftly-quote-content": {
       fontStyle: "italic",
-    },
-
-    // Quote mark (> symbols) - hidden when not focused
-    ".cm-draftly-quote-mark": {
-      display: "none",
     },
   },
 });

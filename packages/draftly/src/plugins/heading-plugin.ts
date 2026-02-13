@@ -19,7 +19,7 @@ const headingMarkDecorations = {
   "heading-4": Decoration.mark({ class: "cm-draftly-h4" }),
   "heading-5": Decoration.mark({ class: "cm-draftly-h5" }),
   "heading-6": Decoration.mark({ class: "cm-draftly-h6" }),
-  "heading-mark": Decoration.mark({ class: "cm-draftly-heading-mark" }),
+  "heading-mark": Decoration.replace({}),
 };
 
 /**
@@ -102,7 +102,9 @@ export class HeadingPlugin extends DecorationPlugin {
         if (!cursorInNode) {
           const headingMark = node.node.getChild("HeaderMark");
           if (headingMark) {
-            decorations.push(headingMarkDecorations["heading-mark"].range(headingMark.from, headingMark.to + 1));
+            // Clamp to line end so replace decoration never spans a newline
+            const markEnd = Math.min(headingMark.to + 1, line.to);
+            decorations.push(headingMarkDecorations["heading-mark"].range(headingMark.from, markEnd));
           }
         }
       },
@@ -184,11 +186,6 @@ const theme = createTheme({
     ".cm-draftly-line-h3, .cm-draftly-line-h4, .cm-draftly-line-h5, .cm-draftly-line-h6": {
       paddingTop: "1em",
       paddingBottom: "0.5em",
-    },
-
-    // Heading mark (# symbols)
-    ".cm-draftly-heading-mark": {
-      display: "none",
     },
   },
 });
