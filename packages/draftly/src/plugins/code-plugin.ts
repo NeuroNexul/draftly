@@ -844,7 +844,7 @@ const theme = createTheme({
       fontFamily: "var(--font-jetbrains-mono, monospace)",
       fontSize: "0.9rem",
       backgroundColor: "rgba(0, 0, 0, 0.05)",
-      padding: "0.1rem 0rem",
+      padding: "0.1rem 0.25rem",
       border: "1px solid var(--color-border)",
       borderRadius: "3px",
     },
