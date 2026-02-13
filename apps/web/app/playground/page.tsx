@@ -71,7 +71,27 @@ const defaultConfig: PlaygroundConfig = {
 
 const STORAGE_KEY = "draftly-playground-contents";
 const STORAGE_CURRENT_KEY = "draftly-playground-current";
+const STORAGE_VERSION_KEY = "draftly-playground-version";
 const DEBOUNCE_MS = 500;
+
+// Bump this version whenever default content (whatIsDraftly / walkthrough) changes.
+// The app will detect the mismatch and refresh the default entries in localStorage.
+const VERSION = 1;
+
+const DEFAULT_CONTENTS: Content[] = [
+  {
+    id: "0",
+    title: "What is Draftly?",
+    content: whatIsDraftly,
+  },
+  {
+    id: "1",
+    title: "Walkthrough",
+    content: walkthrough,
+  },
+];
+
+const DEFAULT_CONTENT_IDS = new Set(DEFAULT_CONTENTS.map((c) => c.id));
 
 export type SaveStatus = "idle" | "saving" | "saved";
 
@@ -103,39 +123,45 @@ export default function Page() {
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const savedIndicatorTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Load from localStorage on mount
+  // Load from localStorage on mount, with version-based cache invalidation
   useEffect(() => {
     const storedContents = localStorage.getItem(STORAGE_KEY);
     const storedCurrent = localStorage.getItem(STORAGE_CURRENT_KEY);
+    const storedVersion = localStorage.getItem(STORAGE_VERSION_KEY);
+    const isOutdated = storedVersion !== String(VERSION);
 
-    if (storedContents) {
+    if (storedContents && !isOutdated) {
+      // Version matches – use stored contents as-is
       try {
         const parsed = JSON.parse(storedContents) as Content[];
         setContents(parsed);
       } catch {
         console.error("Failed to parse stored contents");
       }
+    } else if (storedContents && isOutdated) {
+      // Version mismatch – refresh default entries but keep user-created ones
+      try {
+        const parsed = JSON.parse(storedContents) as Content[];
+        const userContents = parsed.filter((c) => !DEFAULT_CONTENT_IDS.has(c.id));
+        const merged = [...DEFAULT_CONTENTS, ...userContents];
+        setContents(merged);
+        setCurrentContent(0);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+        localStorage.setItem(STORAGE_CURRENT_KEY, "0");
+        localStorage.setItem(STORAGE_VERSION_KEY, String(VERSION));
+      } catch {
+        console.error("Failed to parse stored contents during version update");
+      }
     } else {
-      // Load default content from data/md folder
-      const defaultContents: Content[] = [
-        {
-          id: uuid(),
-          title: "What is Draftly?",
-          content: whatIsDraftly,
-        },
-        {
-          id: uuid(),
-          title: "Walkthrough",
-          content: walkthrough,
-        },
-      ];
-      setContents(defaultContents);
+      // First visit – seed with defaults
+      setContents(DEFAULT_CONTENTS);
       setCurrentContent(0);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultContents));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_CONTENTS));
       localStorage.setItem(STORAGE_CURRENT_KEY, "0");
+      localStorage.setItem(STORAGE_VERSION_KEY, String(VERSION));
     }
 
-    if (storedCurrent) {
+    if (storedCurrent && !isOutdated) {
       const parsedCurrent = parseInt(storedCurrent, 10);
       if (!isNaN(parsedCurrent)) {
         setCurrentContent(parsedCurrent);
