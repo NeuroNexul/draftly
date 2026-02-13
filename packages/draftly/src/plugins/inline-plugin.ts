@@ -36,8 +36,21 @@ const inlineMarkDecorations = {
 // Character code for '='
 const EQUALS = 61;
 
+// Punctuation regex for flanking checks (matches Unicode punctuation)
+// eslint-disable-next-line no-useless-escape
+let Punctuation = /[!"#$%&'()*+,\-./:;<=>?@\[\\\]^_`{|}~\xA1\u2010-\u2027]/;
+try {
+  Punctuation = new RegExp("[\\p{S}|\\p{P}]", "u");
+} catch {
+  // Fallback regex is used above for environments without Unicode support
+}
+
+// Delimiter type for highlight markers — enables nested inline parsing
+const HighlightDelim = { resolve: "Highlight", mark: "HighlightMark" };
+
 /**
  * Inline parser for highlight syntax: ==text==
+ * Uses addDelimiter (like Strikethrough) so nested inline styles work.
  */
 const highlightParser: InlineParser = {
   name: "Highlight",
@@ -47,27 +60,21 @@ const highlightParser: InlineParser = {
     // Don't match === (or more)
     if (cx.char(pos + 2) === EQUALS) return -1;
 
-    // Find the closing ==
-    let end = pos + 2;
-    while (end < cx.end - 1) {
-      if (cx.char(end) === EQUALS && cx.char(end + 1) === EQUALS) {
-        // Don't match === (adjacent)
-        if (end + 2 < cx.end && cx.char(end + 2) === EQUALS) {
-          end++;
-          continue;
-        }
+    // Flanking checks (same logic as Strikethrough)
+    const before = cx.slice(pos - 1, pos);
+    const after = cx.slice(pos + 2, pos + 3);
+    const sBefore = /\s|^$/.test(before),
+      sAfter = /\s|^$/.test(after);
+    const pBefore = Punctuation.test(before),
+      pAfter = Punctuation.test(after);
 
-        // Must have content between markers
-        if (end === pos + 2) return -1;
-
-        const openMark = cx.elt("HighlightMark", pos, pos + 2);
-        const closeMark = cx.elt("HighlightMark", end, end + 2);
-        return cx.addElement(cx.elt("Highlight", pos, end + 2, [openMark, closeMark]));
-      }
-      end++;
-    }
-
-    return -1;
+    return cx.addDelimiter(
+      HighlightDelim,
+      pos,
+      pos + 2,
+      !sAfter && (!pAfter || sBefore || pBefore),
+      !sBefore && (!pBefore || sAfter || pAfter)
+    );
   },
 };
 
