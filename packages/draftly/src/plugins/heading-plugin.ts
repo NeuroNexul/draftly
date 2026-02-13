@@ -19,6 +19,7 @@ const headingMarkDecorations = {
   "heading-4": Decoration.mark({ class: "cm-draftly-h4" }),
   "heading-5": Decoration.mark({ class: "cm-draftly-h5" }),
   "heading-6": Decoration.mark({ class: "cm-draftly-h6" }),
+  "header-mark-class": Decoration.mark({ class: "cm-draftly-header-mark" }),
   "heading-mark": Decoration.replace({}),
 };
 
@@ -94,17 +95,19 @@ export class HeadingPlugin extends DecorationPlugin {
         decorations.push(headingLineDecorations[lineClass].range(line.from));
 
         // Add mark decoration for the heading content
-        decorations.push(headingMarkDecorations[headingClass].range(from, to + 1));
+        decorations.push(headingMarkDecorations[headingClass].range(from, to));
 
         // Find and style the heading marker (#)
         // Only hide when cursor is not in the heading
-        const cursorInNode = ctx.selectionOverlapsRange(from, to);
-        if (!cursorInNode) {
-          const headingMark = node.node.getChild("HeaderMark");
-          if (headingMark) {
+        const headingMark = node.node.getChild("HeaderMark");
+        if (headingMark) {
+          const markEnd = Math.min(headingMark.to + 1, line.to);
+          const cursorInNode = ctx.selectionOverlapsRange(from, to);
+          if (!cursorInNode) {
             // Clamp to line end so replace decoration never spans a newline
-            const markEnd = Math.min(headingMark.to + 1, line.to);
             decorations.push(headingMarkDecorations["heading-mark"].range(headingMark.from, markEnd));
+          } else {
+            decorations.push(headingMarkDecorations["header-mark-class"].range(headingMark.from, markEnd));
           }
         }
       },
@@ -186,6 +189,9 @@ const theme = createTheme({
     ".cm-draftly-line-h3, .cm-draftly-line-h4, .cm-draftly-line-h5, .cm-draftly-line-h6": {
       paddingTop: "1em",
       paddingBottom: "0.5em",
+    },
+    ".cm-draftly-header-mark": {
+      opacity: 0.5,
     },
   },
 });
