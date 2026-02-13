@@ -52,7 +52,12 @@ function buildDecorations(view: EditorView, plugins: DraftlyPlugin[] = []): Deco
     const sortedPlugins = [...plugins].sort((a, b) => a.decorationPriority - b.decorationPriority);
 
     for (const plugin of sortedPlugins) {
-      plugin.buildDecorations(ctx);
+      try {
+        plugin.buildDecorations(ctx);
+      } catch {
+        // Silently ignore errors from partial tree states (e.g., Lezer TreeBuffer
+        // "Invalid child in posBefore"). These resolve on the next update cycle.
+      }
     }
   }
 
