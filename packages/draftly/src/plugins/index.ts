@@ -4,6 +4,7 @@ export { HeadingPlugin } from "./heading-plugin";
 export { InlinePlugin } from "./inline-plugin";
 export { LinkPlugin } from "./link-plugin";
 export { ListPlugin } from "./list-plugin";
+export { TablePlugin } from "./table-plugin";
 export { HTMLPlugin } from "./html-plugin";
 export { ImagePlugin } from "./image-plugin";
 export { MathPlugin } from "./math-plugin";
@@ -19,6 +20,7 @@ import { HeadingPlugin } from "./heading-plugin";
 import { InlinePlugin } from "./inline-plugin";
 import { LinkPlugin } from "./link-plugin";
 import { ListPlugin } from "./list-plugin";
+import { TablePlugin } from "./table-plugin";
 import { HTMLPlugin } from "./html-plugin";
 import { ImagePlugin } from "./image-plugin";
 import { MathPlugin } from "./math-plugin";
@@ -38,6 +40,7 @@ const essentialPlugins: DraftlyPlugin[] = [
   new InlinePlugin(),
   new LinkPlugin(),
   new ListPlugin(),
+  new TablePlugin(),
   new HTMLPlugin(),
   new ImagePlugin(),
   new MathPlugin(),
