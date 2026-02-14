@@ -928,7 +928,7 @@ const theme = createTheme({
     ".cm-draftly-table-widget": {
       cursor: "pointer",
       overflow: "auto",
-      margin: "0.5rem 0",
+      padding: "0.5rem 0",
     },
 
     // Table element
