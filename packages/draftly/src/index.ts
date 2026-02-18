@@ -2,3 +2,4 @@
 export * from "./editor";
 export * from "./plugins";
 export * from "./preview";
+export * from "./lib";

@@ -1,4 +1,4 @@
-import { Decoration, EditorView, KeyBinding } from "@codemirror/view";
+import { Decoration, KeyBinding } from "@codemirror/view";
 import { syntaxTree } from "@codemirror/language";
 import { DecorationContext, DecorationPlugin } from "../editor/plugin";
 import { createTheme } from "../editor";
@@ -6,7 +6,8 @@ import { SyntaxNode } from "@lezer/common";
 import { toggleMarkdownStyle } from "../editor/utils";
 import { tags } from "@lezer/highlight";
 import type { MarkdownConfig, InlineParser } from "@lezer/markdown";
-import { EditorSelection, Extension } from "@codemirror/state";
+import { Extension } from "@codemirror/state";
+import { createWrapSelectionInputHandler } from "../lib";
 
 /**
  * Node types for inline styling in markdown
@@ -173,39 +174,7 @@ export class InlinePlugin extends DecorationPlugin {
    * - = -> ==selected==
    */
   override getExtensions(): Extension[] {
-    return [
-      EditorView.inputHandler.of((view, _from, _to, text) => {
-        if (text !== "*" && text !== "_" && text !== "~" && text !== "^" && text !== "=") {
-          return false;
-        }
-
-        const marker = text === "=" ? "==" : text;
-
-        const ranges = view.state.selection.ranges;
-        if (ranges.length === 0 || ranges.some((range) => range.empty)) {
-          return false;
-        }
-
-        const changes = ranges
-          .map((range) => ({
-            from: range.from,
-            to: range.to,
-            insert: `${marker}${view.state.sliceDoc(range.from, range.to)}${marker}`,
-          }))
-          .reverse();
-
-        const nextRanges = ranges.map((range) =>
-          EditorSelection.range(range.from + marker.length, range.to + marker.length)
-        );
-
-        view.dispatch({
-          changes,
-          selection: EditorSelection.create(nextRanges, view.state.selection.mainIndex),
-        });
-
-        return true;
-      }),
-    ];
+    return [createWrapSelectionInputHandler({ "*": "*", _: "_", "~": "~", "^": "^", "=": "==" })];
   }
 
   /**
