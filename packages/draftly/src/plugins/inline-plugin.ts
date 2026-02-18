@@ -6,6 +6,8 @@ import { SyntaxNode } from "@lezer/common";
 import { toggleMarkdownStyle } from "../editor/utils";
 import { tags } from "@lezer/highlight";
 import type { MarkdownConfig, InlineParser } from "@lezer/markdown";
+import { Extension } from "@codemirror/state";
+import { createWrapSelectionInputHandler } from "../lib";
 
 /**
  * Node types for inline styling in markdown
@@ -161,6 +163,18 @@ export class InlinePlugin extends DecorationPlugin {
         preventDefault: true,
       },
     ];
+  }
+
+  /**
+   * Intercepts inline marker typing to wrap selected text.
+   *
+   * If user types inline markers while text is selected, wraps each selected
+   * range with the appropriate marker:
+   * - * _ ~ ^ -> marker + selected + marker
+   * - = -> ==selected==
+   */
+  override getExtensions(): Extension[] {
+    return [createWrapSelectionInputHandler({ "*": "*", _: "_", "~": "~", "^": "^", "=": "==" })];
   }
 
   /**

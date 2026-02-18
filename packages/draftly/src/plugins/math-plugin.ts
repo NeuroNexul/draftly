@@ -1,4 +1,5 @@
 import { Decoration, EditorView, WidgetType } from "@codemirror/view";
+import { Extension } from "@codemirror/state";
 import { syntaxTree } from "@codemirror/language";
 import { DecorationContext, DecorationPlugin } from "../editor/plugin";
 import { createTheme } from "../editor";
@@ -6,6 +7,7 @@ import { SyntaxNode } from "@lezer/common";
 import { tags } from "@lezer/highlight";
 import type { MarkdownConfig, InlineParser, BlockParser, Line, BlockContext } from "@lezer/markdown";
 import katex from "katex";
+import { createWrapSelectionInputHandler } from "../lib";
 // @ts-expect-error - raw import for CSS as string
 import katexCss from "katex/dist/katex.min.css?raw";
 
@@ -277,6 +279,16 @@ export class MathPlugin extends DecorationPlugin {
    */
   override get theme() {
     return theme;
+  }
+
+  /**
+   * Intercepts dollar typing to wrap selected text as inline math.
+   *
+   * If user types '$' while text is selected, wraps each selected range
+   * with single dollars (selected -> $selected$).
+   */
+  override getExtensions(): Extension[] {
+    return [createWrapSelectionInputHandler({ "$": "$" })];
   }
 
   /**

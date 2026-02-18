@@ -63,6 +63,12 @@
       "require": "./dist/preview/index.cjs",
       "default": "./dist/preview/index.js"
     },
+    "./lib": {
+      "types": "./dist/lib/index.d.ts",
+      "import": "./dist/lib/index.js",
+      "require": "./dist/lib/index.cjs",
+      "default": "./dist/lib/index.js"
+    },
     "./src": {
       "types": "./src/index.ts",
       "default": "./src/index.ts"

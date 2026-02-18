@@ -1,4 +1,5 @@
 import { Decoration, EditorView, KeyBinding, WidgetType } from "@codemirror/view";
+import { Extension } from "@codemirror/state";
 import { syntaxTree } from "@codemirror/language";
 import { DecorationContext, DecorationPlugin } from "../editor/plugin";
 import { createTheme, toggleMarkdownStyle } from "../editor";
@@ -6,6 +7,7 @@ import { SyntaxNode } from "@lezer/common";
 import { highlightCode } from "@lezer/highlight";
 import { languages } from "@codemirror/language-data";
 import { classHighlighter } from "@lezer/highlight";
+import { createWrapSelectionInputHandler } from "../lib";
 
 // ============================================================================
 // Constants
@@ -237,6 +239,16 @@ export class CodePlugin extends DecorationPlugin {
         preventDefault: true,
       },
     ];
+  }
+
+  /**
+   * Intercepts backtick typing to wrap selected text as inline code.
+   *
+   * If user types '`' while text is selected, wraps each selected range
+   * with backticks (selected -> `selected`).
+   */
+  override getExtensions(): Extension[] {
+    return [createWrapSelectionInputHandler({ "`": "`" })];
   }
 
   /**
