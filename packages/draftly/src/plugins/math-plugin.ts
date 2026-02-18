@@ -1,4 +1,5 @@
 import { Decoration, EditorView, WidgetType } from "@codemirror/view";
+import { EditorSelection, Extension } from "@codemirror/state";
 import { syntaxTree } from "@codemirror/language";
 import { DecorationContext, DecorationPlugin } from "../editor/plugin";
 import { createTheme } from "../editor";
@@ -277,6 +278,48 @@ export class MathPlugin extends DecorationPlugin {
    */
   override get theme() {
     return theme;
+  }
+
+  /**
+   * Intercepts dollar typing to wrap selected text as inline math.
+   *
+   * If user types '$' while text is selected, wraps each selected range
+   * with single dollars (selected -> $selected$).
+   */
+  override getExtensions(): Extension[] {
+    return [
+      EditorView.inputHandler.of((view, _from, _to, text) => {
+        if (text !== "$") {
+          return false;
+        }
+
+        const ranges = view.state.selection.ranges;
+        if (ranges.length === 0 || ranges.some((range) => range.empty)) {
+          return false;
+        }
+
+        const marker = "$";
+
+        const changes = ranges
+          .map((range) => ({
+            from: range.from,
+            to: range.to,
+            insert: `${marker}${view.state.sliceDoc(range.from, range.to)}${marker}`,
+          }))
+          .reverse();
+
+        const nextRanges = ranges.map((range) =>
+          EditorSelection.range(range.from + marker.length, range.to + marker.length)
+        );
+
+        view.dispatch({
+          changes,
+          selection: EditorSelection.create(nextRanges, view.state.selection.mainIndex),
+        });
+
+        return true;
+      }),
+    ];
   }
 
   /**
