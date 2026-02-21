@@ -661,7 +661,7 @@ export class CodePlugin extends DecorationPlugin {
       if (match && match[1]) {
         content = match[1];
       }
-      return `<code class="cm-draftly-code-inline" style="padding: 0.1rem 0.25rem">${ctx.sanitize(content)}</code>`;
+      return `<code class="cm-draftly-code-inline" style="padding: 0.1rem 0.25rem">${this.escapeHtml(content)}</code>`;
     }
 
     // Fenced code block
@@ -693,9 +693,9 @@ export class CodePlugin extends DecorationPlugin {
         html += `<div class="cm-draftly-code-header">`;
         html += `<div class="cm-draftly-code-header-left">`;
         if (props.title) {
-          html += `<span class="cm-draftly-code-header-title">${ctx.sanitize(props.title)}</span>`;
+          html += `<span class="cm-draftly-code-header-title">${this.escapeHtml(props.title)}</span>`;
         } else if (props.language) {
-          html += `<span class="cm-draftly-code-header-lang">${ctx.sanitize(props.language)}</span>`;
+          html += `<span class="cm-draftly-code-header-lang">${this.escapeHtml(props.language)}</span>`;
         }
         html += `</div>`;
         if (props.copy !== false) {
@@ -718,7 +718,7 @@ export class CodePlugin extends DecorationPlugin {
       // Code block with line processing
       const hasHeader = showHeader ? " cm-draftly-code-block-has-header" : "";
       const hasCaption = props.caption ? " cm-draftly-code-block-has-caption" : "";
-      html += `<pre class="cm-draftly-code-block${hasHeader}${hasCaption}"${props.language ? ` data-lang="${ctx.sanitize(props.language)}"` : ""}>`;
+      html += `<pre class="cm-draftly-code-block${hasHeader}${hasCaption}"${props.language ? ` data-lang="${this.escapeAttribute(props.language)}"` : ""}>`;
       html += `<code>`;
 
       // Process each line
@@ -739,7 +739,7 @@ export class CodePlugin extends DecorationPlugin {
         }
 
         // Highlight text content
-        let lineContent = this.highlightCodeLine(line, props.language || "", ctx);
+        let lineContent = this.highlightCodeLine(line, props.language || "");
 
         // Apply text highlights
         if (props.highlightText && props.highlightText.length > 0) {
@@ -753,7 +753,7 @@ export class CodePlugin extends DecorationPlugin {
 
       // Caption
       if (props.caption) {
-        html += `<div class="cm-draftly-code-caption">${ctx.sanitize(props.caption)}</div>`;
+        html += `<div class="cm-draftly-code-caption">${this.escapeHtml(props.caption)}</div>`;
       }
 
       // Close wrapper container
@@ -774,9 +774,9 @@ export class CodePlugin extends DecorationPlugin {
    * Highlight a single line of code using the language's Lezer parser.
    * Falls back to sanitized plain text if the language is not supported.
    */
-  private highlightCodeLine(line: string, lang: string, ctx: { sanitize(html: string): string }): string {
+  private highlightCodeLine(line: string, lang: string): string {
     if (!lang || !line) {
-      return ctx.sanitize(line);
+      return this.escapeHtml(line);
     }
 
     // Find the language description
@@ -785,7 +785,7 @@ export class CodePlugin extends DecorationPlugin {
     );
 
     if (!langDesc || !langDesc.support) {
-      return ctx.sanitize(line);
+      return this.escapeHtml(line);
     }
 
     try {
@@ -800,9 +800,9 @@ export class CodePlugin extends DecorationPlugin {
         classHighlighter,
         (text, classes) => {
           if (classes) {
-            result += `<span class="${classes}">${ctx.sanitize(text)}</span>`;
+            result += `<span class="${this.escapeAttribute(classes)}">${this.escapeHtml(text)}</span>`;
           } else {
-            result += ctx.sanitize(text);
+            result += this.escapeHtml(text);
           }
         },
         () => {} // No newlines for single line
@@ -810,8 +810,21 @@ export class CodePlugin extends DecorationPlugin {
 
       return result;
     } catch {
-      return ctx.sanitize(line);
+      return this.escapeHtml(line);
     }
+  }
+
+  private escapeHtml(value: string): string {
+    return value
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
+  private escapeAttribute(value: string): string {
+    return this.escapeHtml(value).replace(/`/g, "&#96;");
   }
 
   /**
