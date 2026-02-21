@@ -1,5 +1,6 @@
 import { ThemeEnum } from "../editor/utils";
 import { GenerateCSSConfig } from "./types";
+import { generateSyntaxThemeCSS } from "./syntax-theme";
 
 /**
  * Base CSS styles for preview rendering
@@ -27,7 +28,13 @@ const baseStyles = `.draftly-preview {
  * ```
  */
 export function generateCSS(config: GenerateCSSConfig = {}): string {
-  const { plugins = [], theme = ThemeEnum.AUTO, wrapperClass = "draftly-preview", includeBase = true } = config;
+  const {
+    plugins = [],
+    theme = ThemeEnum.AUTO,
+    wrapperClass = "draftly-preview",
+    includeBase = true,
+    syntaxTheme,
+  } = config;
 
   const cssChunks: string[] = [];
 
@@ -39,6 +46,12 @@ export function generateCSS(config: GenerateCSSConfig = {}): string {
     } else {
       cssChunks.push(baseStyles);
     }
+  }
+
+  // Collect syntax highlight styles (`tok-*` classes) from CodeMirror theme/extensions
+  const syntaxCSS = generateSyntaxThemeCSS(syntaxTheme, wrapperClass);
+  if (syntaxCSS) {
+    cssChunks.push("/* syntax-theme */\n" + syntaxCSS);
   }
 
   // Collect styles from plugins

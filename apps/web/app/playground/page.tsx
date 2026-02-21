@@ -97,6 +97,7 @@ export type SaveStatus = "idle" | "saving" | "saved";
 
 export default function Page() {
   const { resolvedTheme: theme } = useTheme();
+  const cmTheme = theme?.includes("dark") ? githubDark : githubLight;
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [devbarOpen, setDevbarOpen] = useState(false);
 
@@ -343,12 +344,13 @@ export default function Page() {
         plugins: activePlugins,
         wrapperClass: "draftly-preview",
         includeBase: config.preview.includeBase,
+        syntaxTheme: cmTheme,
       });
 
       setOutputTime(performance.now() - start);
       setOutput({ html, css });
     })();
-  }, [currentContent, contents, theme, mode, activePlugins, config.preview]);
+  }, [currentContent, contents, theme, mode, activePlugins, config.preview, cmTheme]);
 
   if (isLoading) {
     return (
@@ -430,7 +432,7 @@ export default function Page() {
                       height="100%"
                       width="100%"
                       value={output?.html || ""}
-                      theme={theme?.includes("dark") ? githubDark : githubLight}
+                      theme={cmTheme}
                       extensions={[html(), css(), EditorView.lineWrapping]}
                       readOnly
                       autoCorrect="off"
@@ -447,7 +449,7 @@ export default function Page() {
                       height="100%"
                       width="100%"
                       value={output?.css || ""}
-                      theme={theme?.includes("dark") ? githubDark : githubLight}
+                      theme={cmTheme}
                       extensions={[css(), EditorView.lineWrapping]}
                       readOnly
                       autoCorrect="off"
@@ -468,7 +470,7 @@ export default function Page() {
                 width="100%"
                 value={contents[currentContent]?.content}
                 onChange={(value) => handleContentChange(contents[currentContent]!.id, value)}
-                theme={theme?.includes("dark") ? githubDark : githubLight}
+                theme={cmTheme}
                 extensions={[...defaultExtensions]}
                 basicSetup={{
                   lineNumbers: mode === "code",

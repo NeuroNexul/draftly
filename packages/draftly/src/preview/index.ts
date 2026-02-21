@@ -9,9 +9,17 @@ export { preview } from "./preview";
 
 // CSS generation
 export { generateCSS } from "./css-generator";
+export { generateSyntaxThemeCSS } from "./syntax-theme";
 
 // Types
-export type { PreviewConfig, PreviewContext, GenerateCSSConfig, NodeRenderer, NodeRendererMap } from "./types";
+export type {
+	PreviewConfig,
+	PreviewContext,
+	GenerateCSSConfig,
+	SyntaxThemeInput,
+	NodeRenderer,
+	NodeRendererMap,
+} from "./types";
 
 // Utilities
 export { escapeHtml, defaultRenderers } from "./default-renderers";

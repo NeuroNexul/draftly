@@ -148,6 +148,7 @@ Render markdown to semantic HTML for server-side rendering, static site generati
 
 ```tsx
 import { preview, generateCSS, allPlugins, ThemeEnum } from "draftly";
+import { githubLight } from "@uiw/codemirror-theme-github";
 
 const markdown = `
 # Hello World
@@ -173,6 +174,7 @@ const css = generateCSS({
   plugins: allPlugins,
   wrapperClass: "prose",
   includeBase: true,
+  syntaxTheme: githubLight,
 });
 
 // Use in your app
@@ -196,6 +198,16 @@ function ArticlePreview() {
 | `wrapperClass` | `string`           | `"draftly-preview"` | CSS class for the wrapper element.    |
 | `wrapperTag`   | `string`           | `"article"`         | HTML tag for the wrapper element.     |
 | `markdown`     | `MarkdownConfig[]` | `[]`                | Additional parser extensions.         |
+
+#### CSS Configuration (`GenerateCSSConfig`)
+
+| Option         | Type                                         | Default             | Description                                                                   |
+| -------------- | -------------------------------------------- | ------------------- | ----------------------------------------------------------------------------- |
+| `plugins`      | `DraftlyPlugin[]`                            | `[]`                | Plugins to collect preview styles from.                                       |
+| `theme`        | `ThemeEnum`                                  | `ThemeEnum.AUTO`    | Theme mode for plugin preview styles.                                         |
+| `wrapperClass` | `string`                                     | `"draftly-preview"` | Wrapper class used for CSS scoping.                                           |
+| `includeBase`  | `boolean`                                    | `true`              | Include Draftly base preview layout styles.                                   |
+| `syntaxTheme`  | `HighlightStyle \| Extension \| Extension[]` | `undefined`         | CodeMirror syntax theme/extensions used to generate `tok-*` syntax token CSS. |
 
 ---
 

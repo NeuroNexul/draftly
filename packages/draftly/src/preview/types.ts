@@ -1,6 +1,11 @@
 import { SyntaxNode } from "@lezer/common";
 import { ThemeEnum } from "../editor/utils";
 
+export type SyntaxThemeInput =
+  | import("@codemirror/language").HighlightStyle
+  | import("@codemirror/state").Extension
+  | readonly import("@codemirror/state").Extension[];
+
 /**
  * Context passed to plugin preview methods
  */
@@ -59,6 +64,14 @@ export interface GenerateCSSConfig {
 
   /** Include base styles */
   includeBase?: boolean;
+
+  /**
+   * CodeMirror syntax theme input used to generate token CSS (`tok-*`) for static preview.
+   *
+   * You can pass a `HighlightStyle`, a theme/extension object, or extension arrays.
+   * Draftly extracts highlight specs and maps them to Lezer token classes.
+   */
+  syntaxTheme?: SyntaxThemeInput | SyntaxThemeInput[];
 }
 
 /**
