@@ -112,6 +112,7 @@ export default function Page() {
   const [contents, setContents] = useState<Content[]>([]);
   const [currentContent, setCurrentContent] = useState<number>(-1);
   const [output, setOutput] = useState<{ html: string; css: string } | null>(null);
+  const [outputTime, setOutputTime] = useState<number | null>(null);
 
   const [mode, setMode] = useState<"live" | "view" | "code" | "output">("live");
   const [showNodes, setShowNodes] = useState(false);
@@ -324,6 +325,7 @@ export default function Page() {
   useEffect(() => {
     (async function () {
       if (currentContent === -1 || !["view", "output"].includes(mode)) return;
+      const start = performance.now();
 
       const html = await preview(contents[currentContent]?.content || "", {
         theme:
@@ -343,6 +345,7 @@ export default function Page() {
         includeBase: config.preview.includeBase,
       });
 
+      setOutputTime(performance.now() - start);
       setOutput({ html, css });
     })();
   }, [currentContent, contents, theme, mode, activePlugins, config.preview]);
@@ -499,7 +502,7 @@ export default function Page() {
             }
           )}
         >
-          <Devbar nodes={nodes} setShowNodes={setShowNodes} config={config} setConfig={setConfig} />
+          <Devbar nodes={nodes} setShowNodes={setShowNodes} config={config} setConfig={setConfig} outputTime={outputTime} />
         </div>
       </main>
 

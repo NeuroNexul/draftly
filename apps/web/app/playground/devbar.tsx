@@ -10,9 +10,10 @@ type Props = {
   nodes: DraftlyNode[];
   config: PlaygroundConfig;
   setConfig: React.Dispatch<React.SetStateAction<PlaygroundConfig>>;
+  outputTime?: number | null;
 };
 
-export default function Devbar({ setShowNodes, nodes, config, setConfig }: Props) {
+export default function Devbar({ setShowNodes, nodes, config, setConfig, outputTime }: Props) {
   // Helper to toggle editor config
   const toggleEditorOption = (key: keyof PlaygroundConfig["editor"]) => {
     setConfig((prev) => ({
@@ -61,6 +62,12 @@ export default function Devbar({ setShowNodes, nodes, config, setConfig }: Props
       <div className="text-muted-foreground font-mono text-center whitespace-nowrap h-10 p-2 border-b shrink-0">
         Developer Panel
       </div>
+
+      {outputTime !== null && (
+        <div className="text-xs text-muted-foreground p-2 border-b">
+          Output generated in {outputTime?.toFixed(2)}ms
+        </div>
+      )}
 
       <div className="flex-1 overflow-y-auto min-h-0">
         <Accordion
