@@ -83,6 +83,29 @@ function isRowEmpty(rowText: string): boolean {
   return inner.split("|").every((cell) => cell.trim() === "");
 }
 
+async function renderCellWithPreviewRenderer(text: string, config?: DraftlyConfig): Promise<string> {
+  if (!text.trim()) {
+    return "&nbsp;";
+  }
+
+  const renderer = new PreviewRenderer(
+    text,
+    config?.plugins || [],
+    config?.markdown || [],
+    config?.theme || ThemeEnum.AUTO,
+    true
+  );
+  const html = await renderer.render();
+
+  // If wrapped in a single paragraph, unwrap for table cell display
+  const paragraphMatch = html.match(/^\s*<p>([\s\S]*)<\/p>\s*$/i);
+  if (paragraphMatch && paragraphMatch[1] !== undefined) {
+    return paragraphMatch[1];
+  }
+
+  return html;
+}
+
 // ============================================================================
 // Widget
 // ============================================================================
@@ -131,12 +154,8 @@ class TableWidget extends WidgetType {
     const headerRow = document.createElement("tr");
     headers.forEach((h, i) => {
       const th = document.createElement("th");
-      // Initial sync render
-      th.innerHTML = this.renderCellContent(h);
-      // Async update
-      if (this.config) {
-        this.renderCellAsync(h, th);
-      }
+      th.innerHTML = "&nbsp;";
+      this.renderCellAsync(h, th);
       const align = alignments[i];
       if (align) th.style.textAlign = align;
       headerRow.appendChild(th);
@@ -152,12 +171,8 @@ class TableWidget extends WidgetType {
       const colCount = Math.max(headers.length, row.length);
       for (let i = 0; i < colCount; i++) {
         const td = document.createElement("td");
-        // Initial sync render
-        td.innerHTML = this.renderCellContent(row[i] || "");
-        // Async update
-        if (this.config) {
-          this.renderCellAsync(row[i] || "", td);
-        }
+        td.innerHTML = "&nbsp;";
+        this.renderCellAsync(row[i] || "", td);
         const align = alignments[i];
         if (align) td.style.textAlign = align;
         tr.appendChild(td);
@@ -186,67 +201,17 @@ class TableWidget extends WidgetType {
    * Render cell content asynchronously using PreviewRenderer
    */
   private async renderCellAsync(text: string, element: HTMLElement) {
-    if (!text.trim() || !this.config) return;
+    if (!text.trim()) {
+      element.innerHTML = "&nbsp;";
+      return;
+    }
 
     try {
-      const renderer = new PreviewRenderer(
-        text,
-        this.config.plugins,
-        this.config.markdown || [],
-        this.config.theme || ThemeEnum.AUTO,
-        true
-      );
-      const html = await renderer.render();
-
-      // If the result is wrapped in a single paragraph, unwrap it for table cell display
-      // This is a common case since markdown parsers treat text as a paragraph
-      const temp = document.createElement("div");
-      temp.innerHTML = html;
-
-      if (temp.children.length === 1 && temp.children[0]!.tagName === "P") {
-        element.innerHTML = temp.children[0]!.innerHTML;
-      } else {
-        element.innerHTML = html;
-      }
+      element.innerHTML = await renderCellWithPreviewRenderer(text, this.config);
     } catch (error) {
       console.error("Failed to render table cell:", error);
-      // Fallback is already already rendered synchronously
+      element.textContent = text;
     }
-  }
-
-  /**
-   * Render cell content — handle basic inline markdown (fallback/loading state)
-   */
-  private renderCellContent(text: string): string {
-    if (!text.trim()) return "&nbsp;";
-
-    let html = this.escapeHtml(text);
-
-    // Inline code: `code`
-    html = html.replace(/`([^`]+)`/g, '<code class="cm-draftly-table-inline-code">$1</code>');
-
-    // Bold: **text** or __text__
-    html = html.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
-    html = html.replace(/__(.+?)__/g, "<strong>$1</strong>");
-
-    // Italic: *text* or _text_
-    html = html.replace(/\*(.+?)\*/g, "<em>$1</em>");
-    html = html.replace(/_(.+?)_/g, "<em>$1</em>");
-
-    // Strikethrough: ~~text~~
-    html = html.replace(/~~(.+?)~~/g, "<del>$1</del>");
-
-    // Links: [text](url)
-    html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="cm-draftly-table-link">$1</a>');
-
-    // Inline math: $...$
-    html = html.replace(/\$([^$]+)\$/g, '<span class="cm-draftly-table-math">$$$1$$</span>');
-
-    return html;
-  }
-
-  private escapeHtml(text: string): string {
-    return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   }
 
   override ignoreEvent(event: Event): boolean {
@@ -695,16 +660,16 @@ export class TablePlugin extends DecorationPlugin {
   // Preview Rendering
   // ============================================
 
-  override renderToHTML(
+  override async renderToHTML(
     node: SyntaxNode,
     _children: string,
-    ctx: {
+    _ctx: {
       sliceDoc(from: number, to: number): string;
       sanitize(html: string): string;
     }
-  ): string | null {
+  ): Promise<string | null> {
     if (node.name === "Table") {
-      const content = ctx.sliceDoc(node.from, node.to);
+      const content = _ctx.sliceDoc(node.from, node.to);
       const parsed = parseTableMarkdown(content);
 
       if (!parsed) return null;
@@ -715,24 +680,27 @@ export class TablePlugin extends DecorationPlugin {
 
       // Thead
       html += "<thead><tr>";
-      headers.forEach((h, i) => {
+      for (let i = 0; i < headers.length; i++) {
+        const h = headers[i] || "";
         const align = alignments[i] || "left";
-        html += `<th style="text-align: ${align}">${ctx.sanitize(h)}</th>`;
-      });
+        const rendered = await renderCellWithPreviewRenderer(h, this.draftlyConfig);
+        html += `<th style="text-align: ${align}">${rendered}</th>`;
+      }
       html += "</tr></thead>";
 
       // Tbody
       html += "<tbody>";
-      rows.forEach((row) => {
+      for (const row of rows) {
         html += "<tr>";
         const colCount = Math.max(headers.length, row.length);
         for (let i = 0; i < colCount; i++) {
           const align = alignments[i] || "left";
           const cell = row[i] || "";
-          html += `<td style="text-align: ${align}">${ctx.sanitize(cell) || "&nbsp;"}</td>`;
+          const rendered = await renderCellWithPreviewRenderer(cell, this.draftlyConfig);
+          html += `<td style="text-align: ${align}">${rendered}</td>`;
         }
         html += "</tr>";
-      });
+      }
       html += "</tbody>";
 
       html += "</table></div>";
