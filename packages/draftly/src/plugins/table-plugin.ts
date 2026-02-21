@@ -72,68 +72,6 @@ function parseTableMarkdown(markdown: string): ParsedTable | null {
 }
 
 /**
- * Auto-format a markdown table to align pipes and pad cells
- */
-function formatTable(markdown: string): string {
-  const parsed = parseTableMarkdown(markdown);
-  if (!parsed) return markdown;
-
-  const { headers, alignments, rows } = parsed;
-  const colCount = Math.max(headers.length, ...rows.map((r) => r.length));
-
-  // Calculate max width per column
-  const colWidths: number[] = [];
-  for (let c = 0; c < colCount; c++) {
-    let maxW = (headers[c] || "").length;
-    for (const row of rows) {
-      maxW = Math.max(maxW, (row[c] || "").length);
-    }
-    // Minimum width of 3 for delimiter row
-    colWidths.push(Math.max(maxW, 3));
-  }
-
-  // Pad a cell to the target width with alignment
-  const padCell = (text: string, colIndex: number): string => {
-    const width = colWidths[colIndex] || 3;
-    const align = alignments[colIndex] || "left";
-    const trimmed = text || "";
-    const padding = width - trimmed.length;
-    if (padding <= 0) return trimmed;
-
-    switch (align) {
-      case "center": {
-        const leftPad = Math.floor(padding / 2);
-        const rightPad = padding - leftPad;
-        return " ".repeat(leftPad) + trimmed + " ".repeat(rightPad);
-      }
-      case "right":
-        return " ".repeat(padding) + trimmed;
-      default:
-        return trimmed + " ".repeat(padding);
-    }
-  };
-
-  // Build delimiter cell
-  const buildDelimiter = (colIndex: number): string => {
-    const width = colWidths[colIndex] || 3;
-    const align = alignments[colIndex] || "left";
-    const dashes = "-".repeat(width);
-    if (align === "center") return ":" + dashes.slice(1, -1) + ":";
-    if (align === "right") return dashes.slice(0, -1) + ":";
-    return dashes;
-  };
-
-  // Build lines
-  const headerLine = "| " + headers.map((h, i) => padCell(h, i)).join(" | ") + " |";
-  const delimiterLine = "| " + Array.from({ length: colCount }, (_, i) => buildDelimiter(i)).join(" | ") + " |";
-  const dataLines = rows.map(
-    (row) => "| " + Array.from({ length: colCount }, (_, i) => padCell(row[i] || "", i)).join(" | ") + " |"
-  );
-
-  return [headerLine, delimiterLine, ...dataLines].join("\n");
-}
-
-/**
  * Check if a row is completely empty (all cells are empty/whitespace)
  */
 function isRowEmpty(rowText: string): boolean {
@@ -351,9 +289,6 @@ export class TablePlugin extends DecorationPlugin {
   override decorationPriority = 20;
   override readonly requiredNodes = ["Table", "TableHeader", "TableDelimiter", "TableRow", "TableCell"] as const;
 
-  /** Track whether we were previously inside a table (for auto-format on exit) */
-  private lastTableRange: { from: number; to: number } | null = null;
-
   /** Configuration stored from onRegister */
   private draftlyConfig: DraftlyConfig | undefined;
 
@@ -399,20 +334,6 @@ export class TablePlugin extends DecorationPlugin {
         key: "Shift-Tab",
         run: (view) => this.handleTab(view, true),
       },
-    ];
-  }
-
-  // ============================================
-  // Extensions
-  // ============================================
-
-  override getExtensions() {
-    return [
-      // EditorView.updateListener.of((update) => {
-      //   if (update.selectionSet || update.docChanged) {
-      //     this.handleAutoFormat(update.view);
-      //   }
-      // }),
     ];
   }
 
@@ -476,50 +397,6 @@ export class TablePlugin extends DecorationPlugin {
         }
       },
     });
-  }
-
-  // ============================================
-  // Auto-format
-  // ============================================
-
-  /**
-   * Auto-format the table when the cursor exits the table range
-   */
-  private handleAutoFormat(view: EditorView): void {
-    const tree = syntaxTree(view.state);
-    const cursor = view.state.selection.main.head;
-
-    // Find if cursor is currently in a table
-    let currentTable: { from: number; to: number } | null = null;
-    tree.iterate({
-      enter: (node) => {
-        if (node.name === "Table" && cursor >= node.from && cursor <= node.to) {
-          currentTable = { from: node.from, to: node.to };
-        }
-      },
-    });
-
-    if (currentTable) {
-      // We're inside a table — remember the range
-      this.lastTableRange = currentTable;
-    } else if (this.lastTableRange) {
-      // We just exited a table — auto-format it
-      const { from, to } = this.lastTableRange;
-
-      // Validate range is still within document
-      if (from >= 0 && to <= view.state.doc.length) {
-        const tableText = view.state.sliceDoc(from, to);
-        const formatted = formatTable(tableText);
-
-        if (formatted !== tableText) {
-          view.dispatch({
-            changes: { from, to, insert: formatted },
-          });
-        }
-      }
-
-      this.lastTableRange = null;
-    }
   }
 
   // ============================================
