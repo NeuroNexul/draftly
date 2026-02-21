@@ -410,7 +410,7 @@ export default function Page() {
 
         {/* Editor */}
         <div
-          className={cn("flex-1 h-full mx-2 border rounded-lg overflow-hidden flex items-center justify-center", {
+          className={cn("flex-1 h-full mx-2 border rounded-lg overflow-hidden flex items-center justify-center dark:bg-[#0d1117]", {
             "ml-0 max-xl:ml-2": sidebarOpen,
           })}
         >
