@@ -518,6 +518,7 @@ export class CodePlugin extends DecorationPlugin {
               Decoration.widget({
                 widget: new CodeBlockHeaderWidget(infoProps, codeContent),
                 block: false,
+                side: -1,
               }).range(nodeLineStart.from)
             );
           }
