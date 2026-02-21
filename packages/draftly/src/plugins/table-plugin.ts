@@ -803,7 +803,7 @@ const theme = createTheme({
 
     // Table header
     ".cm-draftly-table thead th": {
-      padding: "0.625rem 0.875rem",
+      padding: "0rem 0.875rem",
       fontWeight: "600",
       borderBottom: "2px solid var(--color-border, #e2e8f0)",
       backgroundColor: "rgba(0, 0, 0, 0.03)",
@@ -811,7 +811,7 @@ const theme = createTheme({
 
     // Table cells
     ".cm-draftly-table td": {
-      padding: "0.5rem 0.875rem",
+      padding: "0rem 0.875rem",
       borderBottom: "1px solid var(--color-border, #e2e8f0)",
       borderRight: "1px solid var(--color-border, #e2e8f0)",
     },
