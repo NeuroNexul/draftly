@@ -23,6 +23,11 @@ interface ParsedTable {
   rows: string[][];
 }
 
+type PreviewContextLike = {
+  sliceDoc(from: number, to: number): string;
+  sanitize(html: string): string;
+};
+
 // ============================================================================
 // Utilities
 // ============================================================================
@@ -106,6 +111,46 @@ async function renderCellWithPreviewRenderer(text: string, config?: DraftlyConfi
   return html;
 }
 
+function getColumnAlignment(alignments: Alignment[], index: number): Alignment {
+  return alignments[index] || "left";
+}
+
+function getColumnCount(headers: string[], row: string[]): number {
+  return Math.max(headers.length, row.length);
+}
+
+async function renderTableToHtml(parsed: ParsedTable, config?: DraftlyConfig): Promise<string> {
+  const { headers, alignments, rows } = parsed;
+  let html = '<div class="cm-draftly-table-widget">';
+  html += '<table class="cm-draftly-table">';
+
+  html += "<thead><tr>";
+  for (let i = 0; i < headers.length; i++) {
+    const cell = headers[i] || "";
+    const align = getColumnAlignment(alignments, i);
+    const rendered = await renderCellWithPreviewRenderer(cell, config);
+    html += `<th style="text-align: ${align}">${rendered}</th>`;
+  }
+  html += "</tr></thead>";
+
+  html += "<tbody>";
+  for (const row of rows) {
+    html += "<tr>";
+    const colCount = getColumnCount(headers, row);
+    for (let i = 0; i < colCount; i++) {
+      const align = getColumnAlignment(alignments, i);
+      const cell = row[i] || "";
+      const rendered = await renderCellWithPreviewRenderer(cell, config);
+      html += `<td style="text-align: ${align}">${rendered}</td>`;
+    }
+    html += "</tr>";
+  }
+  html += "</tbody>";
+
+  html += "</table></div>";
+  return html;
+}
+
 // ============================================================================
 // Widget
 // ============================================================================
@@ -168,12 +213,12 @@ class TableWidget extends WidgetType {
     rows.forEach((row) => {
       const tr = document.createElement("tr");
       // Ensure we render enough cells for the column count
-      const colCount = Math.max(headers.length, row.length);
+      const colCount = getColumnCount(headers, row);
       for (let i = 0; i < colCount; i++) {
         const td = document.createElement("td");
         td.innerHTML = "&nbsp;";
         this.renderCellAsync(row[i] || "", td);
-        const align = alignments[i];
+        const align = getColumnAlignment(alignments, i);
         if (align) td.style.textAlign = align;
         tr.appendChild(td);
       }
@@ -663,10 +708,7 @@ export class TablePlugin extends DecorationPlugin {
   override async renderToHTML(
     node: SyntaxNode,
     _children: string,
-    _ctx: {
-      sliceDoc(from: number, to: number): string;
-      sanitize(html: string): string;
-    }
+    _ctx: PreviewContextLike
   ): Promise<string | null> {
     if (node.name === "Table") {
       const content = _ctx.sliceDoc(node.from, node.to);
@@ -674,37 +716,7 @@ export class TablePlugin extends DecorationPlugin {
 
       if (!parsed) return null;
 
-      const { headers, alignments, rows } = parsed;
-      let html = '<div class="cm-draftly-table-widget">';
-      html += '<table class="cm-draftly-table">';
-
-      // Thead
-      html += "<thead><tr>";
-      for (let i = 0; i < headers.length; i++) {
-        const h = headers[i] || "";
-        const align = alignments[i] || "left";
-        const rendered = await renderCellWithPreviewRenderer(h, this.draftlyConfig);
-        html += `<th style="text-align: ${align}">${rendered}</th>`;
-      }
-      html += "</tr></thead>";
-
-      // Tbody
-      html += "<tbody>";
-      for (const row of rows) {
-        html += "<tr>";
-        const colCount = Math.max(headers.length, row.length);
-        for (let i = 0; i < colCount; i++) {
-          const align = alignments[i] || "left";
-          const cell = row[i] || "";
-          const rendered = await renderCellWithPreviewRenderer(cell, this.draftlyConfig);
-          html += `<td style="text-align: ${align}">${rendered}</td>`;
-        }
-        html += "</tr>";
-      }
-      html += "</tbody>";
-
-      html += "</table></div>";
-      return html;
+      return await renderTableToHtml(parsed, this.draftlyConfig);
     }
 
     // Sub-nodes are handled by the Table renderer
