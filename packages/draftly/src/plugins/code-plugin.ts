@@ -3,7 +3,7 @@ import { Extension } from "@codemirror/state";
 import { syntaxTree } from "@codemirror/language";
 import { DecorationContext, DecorationPlugin } from "../editor/plugin";
 import { createTheme, toggleMarkdownStyle } from "../editor";
-import { SyntaxNode } from "@lezer/common";
+import { Parser, SyntaxNode } from "@lezer/common";
 import { highlightCode } from "@lezer/highlight";
 import { languages } from "@codemirror/language-data";
 import { classHighlighter } from "@lezer/highlight";
@@ -215,6 +215,7 @@ export class CodePlugin extends DecorationPlugin {
   readonly version = "1.0.0";
   override decorationPriority = 25;
   override readonly requiredNodes = ["InlineCode", "FencedCode", "CodeMark", "CodeInfo", "CodeText"] as const;
+  private readonly parserCache = new Map<string, Promise<Parser | null>>();
 
   /**
    * Plugin theme
@@ -333,7 +334,7 @@ export class CodePlugin extends DecorationPlugin {
     let remaining = codeInfo.trim();
 
     // Extract language (first word before any special tokens)
-    const langMatch = remaining.match(/^(\w+)/);
+    const langMatch = remaining.match(/^([^\s{]+)/);
     if (langMatch && langMatch[1]) {
       props.language = langMatch[1];
       remaining = remaining.slice(langMatch[0].length).trim();
@@ -642,11 +643,11 @@ export class CodePlugin extends DecorationPlugin {
    * Render code elements to HTML for static preview.
    * Applies syntax highlighting using @lezer/highlight.
    */
-  override renderToHTML(
+  override async renderToHTML(
     node: SyntaxNode,
     children: string,
     ctx: { sliceDoc(from: number, to: number): string; sanitize(html: string): string }
-  ): string | null {
+  ): Promise<string | null> {
     // Hide CodeMark (backticks)
     if (node.name === "CodeMark") {
       return "";
@@ -714,6 +715,7 @@ export class CodePlugin extends DecorationPlugin {
       // Calculate line number info
       const startLineNum = typeof props.lineNumbers === "number" ? props.lineNumbers : 1;
       const lineNumWidth = String(startLineNum + codeLines.length - 1).length;
+      const highlightedLines = await this.highlightCodeLines(code, props.language || "");
 
       // Code block with line processing
       const hasHeader = showHeader ? " cm-draftly-code-block-has-header" : "";
@@ -739,7 +741,7 @@ export class CodePlugin extends DecorationPlugin {
         }
 
         // Highlight text content
-        let lineContent = this.highlightCodeLine(line, props.language || "");
+        let lineContent = highlightedLines[index] ?? this.escapeHtml(line);
 
         // Apply text highlights
         if (props.highlightText && props.highlightText.length > 0) {
@@ -774,44 +776,93 @@ export class CodePlugin extends DecorationPlugin {
    * Highlight a single line of code using the language's Lezer parser.
    * Falls back to sanitized plain text if the language is not supported.
    */
-  private highlightCodeLine(line: string, lang: string): string {
-    if (!lang || !line) {
-      return this.escapeHtml(line);
+  private async highlightCodeLines(code: string, lang: string): Promise<string[]> {
+    const rawLines = code.split("\n");
+    if (!lang || !code) {
+      return rawLines.map((line) => this.escapeHtml(line));
     }
 
-    // Find the language description
-    const langDesc = languages.find(
-      (l) => l.name.toLowerCase() === lang.toLowerCase() || (l.alias && l.alias.includes(lang.toLowerCase()))
-    );
-
-    if (!langDesc || !langDesc.support) {
-      return this.escapeHtml(line);
+    const parser = await this.resolveLanguageParser(lang);
+    if (!parser) {
+      return rawLines.map((line) => this.escapeHtml(line));
     }
 
     try {
-      const parser = langDesc.support.language.parser;
-      const tree = parser.parse(line);
-
-      let result = "";
+      const tree = parser.parse(code);
+      const highlightedLines: string[] = [""];
 
       highlightCode(
-        line,
+        code,
         tree,
         classHighlighter,
         (text, classes) => {
-          if (classes) {
-            result += `<span class="${this.escapeAttribute(classes)}">${this.escapeHtml(text)}</span>`;
-          } else {
-            result += this.escapeHtml(text);
-          }
+          const chunk = classes
+            ? `<span class="${this.escapeAttribute(classes)}">${this.escapeHtml(text)}</span>`
+            : this.escapeHtml(text);
+          highlightedLines[highlightedLines.length - 1] += chunk;
         },
-        () => {} // No newlines for single line
+        () => {
+          highlightedLines.push("");
+        }
       );
 
-      return result;
+      return rawLines.map((line, index) => highlightedLines[index] || this.escapeHtml(line));
     } catch {
-      return this.escapeHtml(line);
+      return rawLines.map((line) => this.escapeHtml(line));
     }
+  }
+
+  private async resolveLanguageParser(lang: string): Promise<Parser | null> {
+    const normalizedLang = this.normalizeLanguage(lang);
+    if (!normalizedLang) return null;
+
+    const cached = this.parserCache.get(normalizedLang);
+    if (cached) return cached;
+
+    const parserPromise = (async () => {
+      const langDesc = languages.find((language) => {
+        const name = language.name.toLowerCase();
+        const aliases = (language.alias ?? []).map((alias) => alias.toLowerCase());
+        return name === normalizedLang || aliases.includes(normalizedLang);
+      });
+
+      if (!langDesc) return null;
+
+      if (langDesc.support) {
+        return langDesc.support.language.parser;
+      }
+
+      if (typeof langDesc.load === "function") {
+        try {
+          const support = await langDesc.load();
+          return support.language.parser;
+        } catch {
+          return null;
+        }
+      }
+
+      return null;
+    })();
+
+    this.parserCache.set(normalizedLang, parserPromise);
+    return parserPromise;
+  }
+
+  private normalizeLanguage(lang: string): string {
+    const normalized = lang.trim().toLowerCase();
+    if (!normalized) return "";
+
+    const normalizedMap: Record<string, string> = {
+      "c++": "cpp",
+      "c#": "csharp",
+      "f#": "fsharp",
+      py: "python",
+      js: "javascript",
+      ts: "typescript",
+      sh: "shell",
+    };
+
+    return normalizedMap[normalized] ?? normalized;
   }
 
   private escapeHtml(value: string): string {
