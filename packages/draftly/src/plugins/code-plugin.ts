@@ -1,6 +1,6 @@
 import { Decoration, EditorView, KeyBinding, WidgetType } from "@codemirror/view";
 import { Extension } from "@codemirror/state";
-import { syntaxTree } from "@codemirror/language";
+import { LanguageDescription, syntaxTree } from "@codemirror/language";
 import { DecorationContext, DecorationPlugin } from "../editor/plugin";
 import { createTheme, toggleMarkdownStyle } from "../editor";
 import { Parser, SyntaxNode } from "@lezer/common";
@@ -824,11 +824,7 @@ export class CodePlugin extends DecorationPlugin {
     if (cached) return cached;
 
     const parserPromise = (async () => {
-      const langDesc = languages.find((language) => {
-        const name = language.name.toLowerCase();
-        const aliases = (language.alias ?? []).map((alias) => alias.toLowerCase());
-        return name === normalizedLang || aliases.includes(normalizedLang);
-      });
+      const langDesc = LanguageDescription.matchLanguageName(languages, normalizedLang, true);
 
       if (!langDesc) return null;
 
