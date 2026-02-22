@@ -156,6 +156,7 @@ export function draftly(config: DraftlyConfig = {}): Extension[] {
     extensions: markdownExtensions,
     addKeymap: true,
     completeHTMLTags: true,
+    pasteURLAsLink: true,
   });
 
   // Core CodeMirror extensions (in order)

@@ -1,12 +1,13 @@
 import { SyntaxNode } from "@lezer/common";
-import { Emoji, GFM, MarkdownConfig, parser as markdownParser, Subscript, Superscript } from "@lezer/markdown";
+import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
+import { MarkdownConfig } from "@lezer/markdown";
+import { languages } from "@codemirror/language-data";
 
 import { DraftlyPlugin } from "../editor/plugin";
 import { ThemeEnum } from "../editor/utils";
 import { createPreviewContext } from "./context";
 import { defaultRenderers, escapeHtml } from "./default-renderers";
 import { NodeRendererMap, PreviewContext } from "./types";
-import { foldNodeProp } from "@codemirror/language";
 
 /**
  * Renderer class that walks the syntax tree and produces HTML
@@ -69,22 +70,16 @@ export class PreviewRenderer {
       ...this.plugins.map((p) => p.getMarkdownConfig()).filter((ext): ext is NonNullable<typeof ext> => ext !== null),
     ];
 
-    // Use GFM extensions to match the editor (markdownLanguage includes GFM by default)
-    // GFM includes: Table, TaskList, Strikethrough, Autolink
-    const baseParser = markdownParser.configure([
-      GFM,
-      Subscript,
-      Superscript,
-      Emoji,
-      {
-        props: [
-          foldNodeProp.add({
-            Table: (tree, state) => ({ from: state.doc.lineAt(tree.from).to, to: tree.to }),
-          }),
-        ],
-      },
-    ]);
-    const parser = extensions.length > 0 ? baseParser.configure(extensions) : baseParser;
+    // Build parser through @codemirror/lang-markdown to match editor behavior exactly
+    const markdownSupport = markdown({
+      base: markdownLanguage,
+      codeLanguages: languages,
+      extensions,
+      addKeymap: true,
+      completeHTMLTags: true,
+      pasteURLAsLink: true,
+    });
+    const parser = markdownSupport.language.parser;
 
     // Parse the document
     const tree = parser.parse(this.doc);
