@@ -24,6 +24,9 @@ export interface PreviewContext {
 
   /** Render children of a node to HTML */
   renderChildren(node: SyntaxNode): Promise<string>;
+
+  /** Active syntax highlighters used for code rendering */
+  readonly syntaxHighlighters?: readonly import("@lezer/highlight").Highlighter[];
 }
 
 /**
@@ -47,6 +50,9 @@ export interface PreviewConfig {
 
   /** Theme to use */
   theme?: ThemeEnum;
+
+  /** CodeMirror syntax theme input used for static preview highlighting */
+  syntaxTheme?: SyntaxThemeInput | SyntaxThemeInput[];
 }
 
 /**
@@ -65,12 +71,7 @@ export interface GenerateCSSConfig {
   /** Include base styles */
   includeBase?: boolean;
 
-  /**
-   * CodeMirror syntax theme input used to generate token CSS (`tok-*`) for static preview.
-   *
-   * You can pass a `HighlightStyle`, a theme/extension object, or extension arrays.
-   * Draftly extracts highlight specs and maps them to Lezer token classes.
-   */
+  /** CodeMirror syntax theme input used for static preview syntax highlighting */
   syntaxTheme?: SyntaxThemeInput | SyntaxThemeInput[];
 }
 

@@ -4,9 +4,8 @@ import { LanguageDescription, syntaxTree } from "@codemirror/language";
 import { DecorationContext, DecorationPlugin } from "../editor/plugin";
 import { createTheme, toggleMarkdownStyle } from "../editor";
 import { Parser, SyntaxNode } from "@lezer/common";
-import { highlightCode } from "@lezer/highlight";
+import { Highlighter, highlightCode } from "@lezer/highlight";
 import { languages } from "@codemirror/language-data";
-import { classHighlighter } from "@lezer/highlight";
 import { createWrapSelectionInputHandler } from "../lib";
 
 // ============================================================================
@@ -649,7 +648,11 @@ export class CodePlugin extends DecorationPlugin {
   override async renderToHTML(
     node: SyntaxNode,
     children: string,
-    ctx: { sliceDoc(from: number, to: number): string; sanitize(html: string): string }
+    ctx: {
+      sliceDoc(from: number, to: number): string;
+      sanitize(html: string): string;
+      syntaxHighlighters?: readonly Highlighter[];
+    }
   ): Promise<string | null> {
     // Hide CodeMark (backticks)
     if (node.name === "CodeMark") {
@@ -718,7 +721,7 @@ export class CodePlugin extends DecorationPlugin {
       // Calculate line number info
       const startLineNum = typeof props.lineNumbers === "number" ? props.lineNumbers : 1;
       const lineNumWidth = String(startLineNum + codeLines.length - 1).length;
-      const highlightedLines = await this.highlightCodeLines(code, props.language || "");
+      const highlightedLines = await this.highlightCodeLines(code, props.language || "", ctx.syntaxHighlighters);
       const previewHighlightCounters = new Array(props.highlightText?.length ?? 0).fill(0);
 
       // Code block with line processing
@@ -780,7 +783,11 @@ export class CodePlugin extends DecorationPlugin {
    * Highlight a single line of code using the language's Lezer parser.
    * Falls back to sanitized plain text if the language is not supported.
    */
-  private async highlightCodeLines(code: string, lang: string): Promise<string[]> {
+  private async highlightCodeLines(
+    code: string,
+    lang: string,
+    syntaxHighlighters?: readonly Highlighter[]
+  ): Promise<string[]> {
     const rawLines = code.split("\n");
     if (!lang || !code) {
       return rawLines.map((line) => this.escapeHtml(line));
@@ -798,7 +805,7 @@ export class CodePlugin extends DecorationPlugin {
       highlightCode(
         code,
         tree,
-        classHighlighter,
+        syntaxHighlighters && syntaxHighlighters.length > 0 ? syntaxHighlighters : [],
         (text, classes) => {
           const chunk = classes
             ? `<span class="${this.escapeAttribute(classes)}">${this.escapeHtml(text)}</span>`

@@ -7,6 +7,7 @@ import { DraftlyPlugin } from "../editor/plugin";
 import { ThemeEnum } from "../editor/utils";
 import { createPreviewContext } from "./context";
 import { defaultRenderers, escapeHtml } from "./default-renderers";
+import { resolveSyntaxHighlighters } from "./syntax-theme";
 import { NodeRendererMap, PreviewContext } from "./types";
 
 /**
@@ -18,6 +19,7 @@ export class PreviewRenderer {
   private plugins: DraftlyPlugin[];
   private markdown: MarkdownConfig[];
   private sanitizeHtml: boolean;
+  private syntaxTheme: import("./types").SyntaxThemeInput | import("./types").SyntaxThemeInput[] | undefined;
   private renderers: NodeRendererMap;
   private ctx: PreviewContext;
   private nodeToPlugins: Map<string, DraftlyPlugin[]>;
@@ -27,17 +29,21 @@ export class PreviewRenderer {
     plugins: DraftlyPlugin[] = [],
     markdown: MarkdownConfig[],
     theme: ThemeEnum = ThemeEnum.AUTO,
-    sanitize: boolean = true
+    sanitize: boolean = true,
+    syntaxTheme?: import("./types").SyntaxThemeInput | import("./types").SyntaxThemeInput[]
   ) {
     this.doc = doc;
     this.theme = theme;
     this.plugins = plugins;
     this.markdown = markdown;
     this.sanitizeHtml = sanitize;
+    this.syntaxTheme = syntaxTheme;
     this.renderers = { ...defaultRenderers };
 
+    const syntaxHighlighters = resolveSyntaxHighlighters(this.syntaxTheme, true);
+
     // Create context with reference to renderChildren
-    this.ctx = createPreviewContext(doc, theme, this.renderChildren.bind(this), sanitize);
+    this.ctx = createPreviewContext(doc, theme, this.renderChildren.bind(this), sanitize, syntaxHighlighters);
 
     // Build node-to-plugin map for O(1) lookup
     this.nodeToPlugins = this.buildNodePluginMap();

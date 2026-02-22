@@ -333,6 +333,7 @@ export default function Page() {
           theme && theme !== "system" ? (theme.includes("dark") ? ThemeEnum.DARK : ThemeEnum.LIGHT) : ThemeEnum.AUTO,
         plugins: activePlugins,
         markdown: [],
+        syntaxTheme: cmTheme,
         sanitize: config.preview.sanitize,
         wrapperTag: "div",
         wrapperClass: "draftly-preview h-full w-full max-w-[48rem] mx-auto overflow-auto",

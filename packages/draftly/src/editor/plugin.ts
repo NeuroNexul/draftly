@@ -214,7 +214,11 @@ export abstract class DraftlyPlugin {
   renderToHTML?(
     node: SyntaxNode,
     children: string,
-    ctx: { sliceDoc(from: number, to: number): string; sanitize(html: string): string }
+    ctx: {
+      sliceDoc(from: number, to: number): string;
+      sanitize(html: string): string;
+      syntaxHighlighters?: readonly import("@lezer/highlight").Highlighter[];
+    }
   ): string | null | Promise<string | null>;
 
   /**

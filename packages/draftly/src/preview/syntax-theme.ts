@@ -1,4 +1,4 @@
-import { classHighlighter } from "@lezer/highlight";
+import { classHighlighter, Highlighter } from "@lezer/highlight";
 import type { SyntaxThemeInput } from "./types";
 
 type HighlightSpec = {
@@ -9,65 +9,60 @@ type HighlightSpec = {
 
 type RuntimeHighlightStyle = {
   specs?: HighlightSpec[];
+  style?: (tags: readonly import("@lezer/highlight").Tag[]) => string | null;
+  module?: { getRules(): string } | null;
 };
 
-const SKIP_SPEC_KEYS = new Set(["tag", "class"]);
 const MAX_WALK_DEPTH = 8;
 
 /**
- * Extracts syntax highlight CSS from CodeMirror theme/highlight extensions
- * and maps it to Lezer `tok-*` classes used by Draftly preview HTML.
+ * Extract syntax highlight CSS from resolved CodeMirror HighlightStyle modules.
  */
 export function generateSyntaxThemeCSS(
   syntaxTheme: SyntaxThemeInput | SyntaxThemeInput[] | undefined,
-  wrapperClass: string
+  _wrapperClass: string
 ): string {
   if (!syntaxTheme) return "";
 
-  const styles = extractHighlightStyles(syntaxTheme);
+  const styles = extractRuntimeHighlightStyles(syntaxTheme);
   if (!styles.length) return "";
 
-  const scopedWrapperClass = normalizeWrapperClass(wrapperClass);
-  const ruleMap = new Map<string, string[]>();
+  const cssChunks: string[] = [];
 
   for (const style of styles) {
-    const specs = style.specs ?? [];
-
-    for (const spec of specs) {
-      const selector = getSelectorFromSpec(spec, scopedWrapperClass);
-      if (!selector) continue;
-
-      const declarations: string[] = [];
-      for (const [rawProp, rawValue] of Object.entries(spec)) {
-        if (SKIP_SPEC_KEYS.has(rawProp)) continue;
-        if (rawValue === undefined || rawValue === null) continue;
-
-        const cssProp = toKebabCase(rawProp);
-        const cssValue = String(rawValue).trim();
-        if (!cssValue) continue;
-
-        declarations.push(`${cssProp}: ${cssValue};`);
-      }
-
-      if (!declarations.length) continue;
-
-      const existing = ruleMap.get(selector) ?? [];
-      existing.push(...declarations);
-      ruleMap.set(selector, existing);
-    }
+    const rules = style.module?.getRules();
+    if (!rules) continue;
+    cssChunks.push(rules);
   }
 
-  if (!ruleMap.size) return "";
+  if (!cssChunks.length) return "";
 
-  return Array.from(ruleMap.entries())
-    .map(([selector, declarations]) => {
-      const merged = Array.from(new Set(declarations));
-      return `${selector} { ${merged.join("")} }`;
-    })
+  return Array.from(new Set(cssChunks))
     .join("\n");
 }
 
-function extractHighlightStyles(input: SyntaxThemeInput | SyntaxThemeInput[]): RuntimeHighlightStyle[] {
+export function resolveSyntaxHighlighters(
+  syntaxTheme: SyntaxThemeInput | SyntaxThemeInput[] | undefined,
+  includeLegacyClassHighlighter: boolean = true
+): readonly Highlighter[] {
+  const resolved: Highlighter[] = [];
+  if (includeLegacyClassHighlighter) {
+    resolved.push(classHighlighter);
+  }
+
+  const styles = extractRuntimeHighlightStyles(syntaxTheme);
+  for (const style of styles) {
+    if (typeof style.style === "function") {
+      resolved.push(style as unknown as Highlighter);
+    }
+  }
+
+  return Array.from(new Set(resolved));
+}
+
+function extractRuntimeHighlightStyles(input: SyntaxThemeInput | SyntaxThemeInput[] | undefined): RuntimeHighlightStyle[] {
+  if (!input) return [];
+
   const values = Array.isArray(input) ? input : [input];
   const styles: RuntimeHighlightStyle[] = [];
   const visited = new WeakSet<object>();
@@ -83,7 +78,7 @@ function walk(value: unknown, depth: number, visited: WeakSet<object>, out: Runt
   if (value === null || value === undefined) return;
   if (depth > MAX_WALK_DEPTH) return;
 
-  if (isHighlightStyle(value)) {
+  if (isRuntimeHighlightStyle(value)) {
     out.push(value);
   }
 
@@ -108,52 +103,8 @@ function walk(value: unknown, depth: number, visited: WeakSet<object>, out: Runt
   }
 }
 
-function isHighlightStyle(value: unknown): value is RuntimeHighlightStyle {
+function isRuntimeHighlightStyle(value: unknown): value is RuntimeHighlightStyle {
   if (!value || typeof value !== "object") return false;
-  const specs = (value as RuntimeHighlightStyle).specs;
-  return Array.isArray(specs);
-}
-
-function getSelectorFromSpec(spec: HighlightSpec, wrapperClass: string): string | null {
-  const explicitClass = typeof spec.class === "string" && spec.class.trim() ? spec.class.trim() : "";
-  wrapperClass = escapeClassName(wrapperClass);
-
-  const classNames = explicitClass || getClassNameFromTag(spec.tag);
-  if (!classNames) return null;
-
-  const classSelector = classNames
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((className) => `.${wrapperClass} .${escapeClassName(className)}`)
-    .join(", ");
-
-  if (!classSelector) return null;
-
-  return `${classSelector}`;
-}
-
-function getClassNameFromTag(tag: unknown): string {
-  try {
-    if (!tag) return "";
-    const className = classHighlighter.style(tag as never);
-    return typeof className === "string" ? className : "";
-  } catch {
-    return "";
-  }
-}
-
-function toKebabCase(value: string): string {
-  return value.replace(/[A-Z]/g, (match) => `-${match.toLowerCase()}`);
-}
-
-function normalizeWrapperClass(wrapperClass: string): string {
-  const firstClass = wrapperClass.trim().split(/\s+/)[0];
-  return firstClass || "draftly-preview";
-}
-
-function escapeClassName(value: string): string {
-  return value.replace(/[^a-zA-Z0-9_-]/g, (char) => {
-    const codePoint = char.codePointAt(0);
-    return codePoint ? `\\${codePoint.toString(16)} ` : "";
-  });
+  const style = value as RuntimeHighlightStyle;
+  return Array.isArray(style.specs) && typeof style.style === "function";
 }

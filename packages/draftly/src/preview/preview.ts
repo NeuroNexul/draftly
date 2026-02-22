@@ -28,10 +28,11 @@ export async function preview(markdown: string, config: PreviewConfig = {}): Pro
     wrapperTag = "article",
     sanitize = true,
     theme = ThemeEnum.AUTO,
+    syntaxTheme,
   } = config;
 
   // Create renderer and generate HTML
-  const renderer = new PreviewRenderer(markdown, plugins, markdownConfig, theme, sanitize);
+  const renderer = new PreviewRenderer(markdown, plugins, markdownConfig, theme, sanitize, syntaxTheme);
   const content = await renderer.render();
 
   // Wrap in container

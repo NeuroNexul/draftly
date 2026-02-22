@@ -1,4 +1,5 @@
 import { SyntaxNode } from "@lezer/common";
+import { Highlighter } from "@lezer/highlight";
 import { ThemeEnum } from "../editor/utils";
 import { PreviewContext } from "./types";
 import DOMPurify from "dompurify";
@@ -10,11 +11,13 @@ export function createPreviewContext(
   doc: string,
   theme: ThemeEnum,
   renderChildren: (node: SyntaxNode) => Promise<string>,
-  sanitizeHtml: boolean = true
+  sanitizeHtml: boolean = true,
+  syntaxHighlighters: readonly Highlighter[] = []
 ): PreviewContext {
   return {
     doc,
     theme,
+    syntaxHighlighters,
 
     sliceDoc(from: number, to: number): string {
       return doc.slice(from, to);
