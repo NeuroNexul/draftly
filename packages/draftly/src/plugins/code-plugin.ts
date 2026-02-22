@@ -501,6 +501,9 @@ export class CodePlugin extends DecorationPlugin {
           // Track code line index (excluding fence lines)
           let codeLineIndex = 0;
 
+          // Track text highlight instance counters globally across the whole code block
+          const highlightInstanceCounters = new Array(infoProps.highlightText?.length ?? 0).fill(0);
+
           // Extract code content for copy button
           let codeContent = "";
           for (let child = node.node.firstChild; child; child = child.nextSibling) {
@@ -581,17 +584,17 @@ export class CodePlugin extends DecorationPlugin {
             if (!isFenceLine && infoProps.highlightText && infoProps.highlightText.length > 0) {
               const lineText = view.state.sliceDoc(line.from, line.to);
 
-              for (const textHighlight of infoProps.highlightText) {
+              for (const [highlightIndex, textHighlight] of infoProps.highlightText.entries()) {
                 try {
                   const regex = new RegExp(textHighlight.pattern, "g");
                   let match;
-                  let matchIndex = 0;
 
                   while ((match = regex.exec(lineText)) !== null) {
-                    matchIndex++;
+                    highlightInstanceCounters[highlightIndex] = (highlightInstanceCounters[highlightIndex] ?? 0) + 1;
+                    const globalMatchIndex = highlightInstanceCounters[highlightIndex];
 
-                    // Check if this instance should be highlighted
-                    const shouldHighlight = !textHighlight.instances || textHighlight.instances.includes(matchIndex);
+                    // Check if this global instance should be highlighted
+                    const shouldHighlight = !textHighlight.instances || textHighlight.instances.includes(globalMatchIndex);
 
                     if (shouldHighlight) {
                       const matchFrom = line.from + match.index;
@@ -716,6 +719,7 @@ export class CodePlugin extends DecorationPlugin {
       const startLineNum = typeof props.lineNumbers === "number" ? props.lineNumbers : 1;
       const lineNumWidth = String(startLineNum + codeLines.length - 1).length;
       const highlightedLines = await this.highlightCodeLines(code, props.language || "");
+      const previewHighlightCounters = new Array(props.highlightText?.length ?? 0).fill(0);
 
       // Code block with line processing
       const hasHeader = showHeader ? " cm-draftly-code-block-has-header" : "";
@@ -745,7 +749,7 @@ export class CodePlugin extends DecorationPlugin {
 
         // Apply text highlights
         if (props.highlightText && props.highlightText.length > 0) {
-          lineContent = this.applyTextHighlights(lineContent, props.highlightText);
+          lineContent = this.applyTextHighlights(lineContent, props.highlightText, previewHighlightCounters);
         }
 
         html += `<span ${lineAttrs.join(" ")}>${lineContent || " "}</span>`;
@@ -882,14 +886,14 @@ export class CodePlugin extends DecorationPlugin {
    * Apply text highlights (regex patterns) to already syntax-highlighted HTML.
    * Wraps matched patterns in `<mark>` elements.
    */
-  private applyTextHighlights(htmlContent: string, highlights: TextHighlight[]): string {
+  private applyTextHighlights(htmlContent: string, highlights: TextHighlight[], instanceCounters?: number[]): string {
     let result = htmlContent;
 
-    for (const highlight of highlights) {
+    for (const [highlightIndex, highlight] of highlights.entries()) {
       try {
         // Create regex from pattern
         const regex = new RegExp(`(${highlight.pattern})`, "g");
-        let matchCount = 0;
+        let matchCount = instanceCounters?.[highlightIndex] ?? 0;
 
         result = result.replace(regex, (match) => {
           matchCount++;
@@ -900,6 +904,10 @@ export class CodePlugin extends DecorationPlugin {
           }
           return match;
         });
+
+        if (instanceCounters) {
+          instanceCounters[highlightIndex] = matchCount;
+        }
       } catch {
         // Invalid regex, skip
       }
