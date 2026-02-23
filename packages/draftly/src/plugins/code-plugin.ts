@@ -2,11 +2,12 @@ import { Decoration, EditorView, KeyBinding, WidgetType } from "@codemirror/view
 import { Extension } from "@codemirror/state";
 import { LanguageDescription, syntaxTree } from "@codemirror/language";
 import { DecorationContext, DecorationPlugin } from "../editor/plugin";
-import { createTheme, toggleMarkdownStyle } from "../editor";
+import { toggleMarkdownStyle } from "../editor";
 import { Parser, SyntaxNode } from "@lezer/common";
 import { Highlighter, highlightCode } from "@lezer/highlight";
 import { languages } from "@codemirror/language-data";
 import { createWrapSelectionInputHandler } from "../lib";
+import { codePluginTheme as theme } from "./code-plugin.theme";
 
 // ============================================================================
 // Constants
@@ -20,6 +21,21 @@ const CHECK_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="1
 
 /** Delay before resetting copy button state (ms) */
 const COPY_RESET_DELAY = 2000;
+
+/** Code fence marker in markdown blocks */
+const CODE_FENCE = "```";
+
+/** Regex for quoted code info values like title="file.ts" */
+const QUOTED_INFO_PATTERN = /(\w+)="([^"]*)"/g;
+
+/** Regex for /pattern/ with optional instance selectors (/pattern/1-3,5) */
+const TEXT_HIGHLIGHT_PATTERN = /\/([^/]+)\/(?:(\d+(?:-\d+)?(?:,\d+(?:-\d+)?)*))?/g;
+
+interface PreviewRenderContext {
+  sliceDoc(from: number, to: number): string;
+  sanitize(html: string): string;
+  syntaxHighlighters?: readonly Highlighter[];
+}
 
 // ============================================================================
 // Decorations
@@ -291,8 +307,8 @@ export class CodePlugin extends DecorationPlugin {
     const nextLine = state.doc.line(nextLineNum);
 
     const isWrapped =
-      prevLine.text.trim().startsWith("```") &&
-      nextLine.text.trim() === "```" &&
+      prevLine.text.trim().startsWith(CODE_FENCE) &&
+      nextLine.text.trim() === CODE_FENCE &&
       prevLineNum !== startLine.number &&
       nextLineNum !== endLine.number;
 
@@ -306,8 +322,8 @@ export class CodePlugin extends DecorationPlugin {
       });
     } else {
       // Wrap with code fence
-      const openFence = "```\n";
-      const closeFence = "\n```";
+      const openFence = `${CODE_FENCE}\n`;
+      const closeFence = `\n${CODE_FENCE}`;
 
       view.dispatch({
         changes: [
@@ -362,9 +378,8 @@ export class CodePlugin extends DecorationPlugin {
     }
 
     // Extract quoted values (title="..." caption="...")
-    const quotedPattern = /(\w+)="([^"]*)"/g;
     let quotedMatch;
-    while ((quotedMatch = quotedPattern.exec(remaining)) !== null) {
+    while ((quotedMatch = QUOTED_INFO_PATTERN.exec(remaining)) !== null) {
       const key = quotedMatch[1]?.toLowerCase();
       const value = quotedMatch[2];
 
@@ -375,10 +390,11 @@ export class CodePlugin extends DecorationPlugin {
       }
     }
     // Remove matched quoted values
-    remaining = remaining.replace(quotedPattern, "").trim();
+    remaining = remaining.replace(QUOTED_INFO_PATTERN, "").trim();
 
-    // Check for line-numbers with optional start value
-    const lineNumbersMatch = remaining.match(/showLineNumbers(?:\{(\d+)\})?/);
+    // Check for line numbers with optional start value.
+    // Supports both `line-numbers` and legacy `showLineNumbers` tokens.
+    const lineNumbersMatch = remaining.match(/\b(?:line-numbers|showLineNumbers)(?:\{(\d+)\})?\b/);
     if (lineNumbersMatch) {
       if (lineNumbersMatch[1]) {
         props.showLineNumbers = parseInt(lineNumbersMatch[1], 10);
@@ -403,25 +419,7 @@ export class CodePlugin extends DecorationPlugin {
     // Extract line highlights {2-4,5,9}
     const lineHighlightMatch = remaining.match(/\{([^}]+)\}/);
     if (lineHighlightMatch && lineHighlightMatch[1]) {
-      const highlightLines: number[] = [];
-      const parts = lineHighlightMatch[1].split(",");
-
-      for (const part of parts) {
-        const trimmed = part.trim();
-        const rangeMatch = trimmed.match(/^(\d+)-(\d+)$/);
-
-        if (rangeMatch && rangeMatch[1] && rangeMatch[2]) {
-          // Range: 2-4 -> [2,3,4]
-          const start = parseInt(rangeMatch[1], 10);
-          const end = parseInt(rangeMatch[2], 10);
-          for (let i = start; i <= end; i++) {
-            highlightLines.push(i);
-          }
-        } else if (/^\d+$/.test(trimmed)) {
-          // Individual number
-          highlightLines.push(parseInt(trimmed, 10));
-        }
-      }
+      const highlightLines = this.parseNumberList(lineHighlightMatch[1]);
 
       if (highlightLines.length > 0) {
         props.highlightLines = highlightLines;
@@ -430,11 +428,10 @@ export class CodePlugin extends DecorationPlugin {
     }
 
     // Extract text/regex highlights /pattern/ or /pattern/3-5 or /pattern/3,5
-    const textHighlightPattern = /\/([^/]+)\/(?:(\d+(?:-\d+)?(?:,\d+(?:-\d+)?)*))?/g;
     let textMatch;
     const highlightText: TextHighlight[] = [];
 
-    while ((textMatch = textHighlightPattern.exec(remaining)) !== null) {
+    while ((textMatch = TEXT_HIGHLIGHT_PATTERN.exec(remaining)) !== null) {
       if (!textMatch[1]) continue;
       const highlight: TextHighlight = {
         pattern: textMatch[1],
@@ -442,23 +439,7 @@ export class CodePlugin extends DecorationPlugin {
 
       // Parse instance selection if present
       if (textMatch[2]) {
-        const instanceStr = textMatch[2];
-        const instances: number[] = [];
-        const instanceParts = instanceStr.split(",");
-
-        for (const part of instanceParts) {
-          const rangeMatch = part.match(/^(\d+)-(\d+)$/);
-          if (rangeMatch && rangeMatch[1] && rangeMatch[2]) {
-            // Range: 3-5 -> [3,4,5]
-            const start = parseInt(rangeMatch[1], 10);
-            const end = parseInt(rangeMatch[2], 10);
-            for (let i = start; i <= end; i++) {
-              instances.push(i);
-            }
-          } else if (/^\d+$/.test(part)) {
-            instances.push(parseInt(part, 10));
-          }
-        }
+        const instances = this.parseNumberList(textMatch[2]);
 
         if (instances.length > 0) {
           highlight.instances = instances;
@@ -480,273 +461,269 @@ export class CodePlugin extends DecorationPlugin {
    * Handles line numbers, highlights, header/caption widgets, and fence visibility.
    */
   buildDecorations(ctx: DecorationContext): void {
-    const { view, decorations } = ctx;
-    const tree = syntaxTree(view.state);
+    const tree = syntaxTree(ctx.view.state);
 
     tree.iterate({
       enter: (node) => {
-        const { from, to, name } = node;
-
-        // Handle inline code
-        if (name === "InlineCode") {
-          // Add inline code styling
-          decorations.push(codeMarkDecorations["inline-code"].range(from, to));
-
-          // Hide backticks when cursor is not in range
-          const cursorInRange = ctx.selectionOverlapsRange(from, to);
-          if (!cursorInRange) {
-            // Find the CodeMark children (backticks)
-            for (let child = node.node.firstChild; child; child = child.nextSibling) {
-              if (child.name === "CodeMark") {
-                decorations.push(codeMarkDecorations["inline-mark"].range(child.from, child.to));
-              }
-            }
-          }
+        if (node.name === "InlineCode") {
+          this.decorateInlineCode(node, ctx);
+          return;
         }
 
-        // Handle fenced code blocks
-        if (name === "FencedCode") {
-          const nodeLineStart = view.state.doc.lineAt(from);
-          const nodeLineEnd = view.state.doc.lineAt(to);
-          const cursorInRange = ctx.selectionOverlapsRange(nodeLineStart.from, nodeLineEnd.to);
-
-          // Extract properties from CodeInfo
-          let infoProps: CodeBlockProperties = { language: "" };
-          for (let child = node.node.firstChild; child; child = child.nextSibling) {
-            if (child.name === "CodeInfo") {
-              infoProps = this.parseCodeInfo(view.state.sliceDoc(child.from, child.to).trim());
-              break;
-            }
-          }
-
-          // Calculate line number width for styling (if line numbers enabled)
-          const totalCodeLines = nodeLineEnd.number - nodeLineStart.number - 1; // Exclude fence lines
-          const startLineNum = typeof infoProps.showLineNumbers === "number" ? infoProps.showLineNumbers : 1;
-          const maxLineNum = startLineNum + totalCodeLines - 1;
-          const lineNumWidth = Math.max(String(maxLineNum).length, String(startLineNum).length);
-
-          // Track code line index (excluding fence lines)
-          let codeLineIndex = 0;
-
-          // Track text highlight instance counters globally across the whole code block
-          const highlightInstanceCounters = new Array(infoProps.highlightText?.length ?? 0).fill(0);
-
-          // Extract code content for copy button
-          let codeContent = "";
-          for (let child = node.node.firstChild; child; child = child.nextSibling) {
-            if (child.name === "CodeText") {
-              codeContent = view.state.sliceDoc(child.from, child.to);
-              break;
-            }
-          }
-
-          const codeLinesForDiff: string[] = [];
-          for (let i = nodeLineStart.number + 1; i <= nodeLineEnd.number - 1; i++) {
-            const codeLine = view.state.doc.line(i);
-            codeLinesForDiff.push(view.state.sliceDoc(codeLine.from, codeLine.to));
-          }
-          const diffStates = infoProps.diff ? this.analyzeDiffLines(codeLinesForDiff) : [];
-          const displayLineNumbers = infoProps.diff
-            ? this.computeDiffDisplayLineNumbers(diffStates, startLineNum)
-            : codeLinesForDiff.map((_, index) => startLineNum + index);
-          const diffHighlightLineNumbers = infoProps.diff ? this.computeDiffDisplayLineNumbers(diffStates, 1) : [];
-
-          const shouldShowHeader = !cursorInRange && (infoProps.title || infoProps.copy || infoProps.language);
-          const shouldShowCaption = !cursorInRange && infoProps.caption;
-
-          // Add header widget when cursor not in range and (title, copy, or language is set)
-          if (shouldShowHeader) {
-            decorations.push(
-              Decoration.widget({
-                widget: new CodeBlockHeaderWidget(infoProps, codeContent),
-                block: false,
-                side: -1,
-              }).range(nodeLineStart.from)
-            );
-          }
-
-          // Add line decorations for all lines in the block
-          for (let i = nodeLineStart.number; i <= nodeLineEnd.number; i++) {
-            const line = view.state.doc.line(i);
-            const isFenceLine = i === nodeLineStart.number || i === nodeLineEnd.number;
-            const relativeLineNum = displayLineNumbers[codeLineIndex] ?? startLineNum + codeLineIndex;
-
-            // Base line decoration
-            decorations.push(codeMarkDecorations["code-block-line"].range(line.from));
-
-            // Add start/end line decorations
-            if (i === nodeLineStart.number) {
-              decorations.push(codeMarkDecorations["code-block-line-start"].range(line.from));
-              // Add class for header presence
-              if (shouldShowHeader) {
-                decorations.push(
-                  Decoration.line({
-                    class: "cm-draftly-code-block-has-header",
-                  }).range(line.from)
-                );
-              }
-            }
-            if (i === nodeLineEnd.number) {
-              decorations.push(codeMarkDecorations["code-block-line-end"].range(line.from));
-              // Add class for caption presence
-              if (shouldShowCaption) {
-                decorations.push(
-                  Decoration.line({
-                    class: "cm-draftly-code-block-has-caption",
-                  }).range(line.from)
-                );
-              }
-            }
-
-            // Line numbers (only for code lines, not fence lines)
-            if (!isFenceLine && infoProps.showLineNumbers) {
-              decorations.push(
-                Decoration.line({
-                  class: "cm-draftly-code-line-numbered",
-                  attributes: {
-                    "data-line-num": String(relativeLineNum),
-                    style: `--line-num-width: ${lineNumWidth}ch`,
-                  },
-                }).range(line.from)
-              );
-            }
-
-            if (!isFenceLine && infoProps.diff) {
-              const diffState = diffStates[codeLineIndex];
-              const diffMarker = diffState?.kind === "addition" ? "+" : diffState?.kind === "deletion" ? "-" : "";
-
-              decorations.push(
-                Decoration.line({
-                  class: "cm-draftly-code-line-diff-gutter",
-                  attributes: {
-                    "data-diff-marker": diffMarker,
-                  },
-                }).range(line.from)
-              );
-
-              if (diffState?.kind === "addition") {
-                decorations.push(codeMarkDecorations["diff-line-add"].range(line.from));
-                if (cursorInRange && line.to > line.from) {
-                  decorations.push(codeMarkDecorations["diff-sign-add"].range(line.from, line.from + 1));
-                }
-              }
-
-              if (diffState?.kind === "deletion") {
-                decorations.push(codeMarkDecorations["diff-line-del"].range(line.from));
-                if (cursorInRange && line.to > line.from) {
-                  decorations.push(codeMarkDecorations["diff-sign-del"].range(line.from, line.from + 1));
-                }
-              }
-
-              if (!cursorInRange && diffState?.escapedMarker && line.to > line.from) {
-                decorations.push(codeMarkDecorations["diff-escape-hidden"].range(line.from, line.from + 1));
-              }
-
-              if (!cursorInRange && (diffState?.kind === "addition" || diffState?.kind === "deletion") && line.to > line.from) {
-                decorations.push(codeMarkDecorations["diff-escape-hidden"].range(line.from, line.from + 1));
-              }
-
-              if (diffState?.modificationRanges && diffState.modificationRanges.length > 0) {
-                for (const [start, end] of diffState.modificationRanges) {
-                  const rangeFrom = line.from + diffState.contentOffset + start;
-                  const rangeTo = line.from + diffState.contentOffset + end;
-                  if (rangeTo > rangeFrom) {
-                    decorations.push(
-                      (diffState.kind === "addition"
-                        ? codeMarkDecorations["diff-mod-add"]
-                        : codeMarkDecorations["diff-mod-del"]
-                      ).range(rangeFrom, rangeTo)
-                    );
-                  }
-                }
-              }
-            }
-
-            // Line highlight (check if this line should be highlighted)
-            if (!isFenceLine && infoProps.highlightLines) {
-              const highlightLineNumber = infoProps.diff
-                ? (diffHighlightLineNumbers[codeLineIndex] ?? codeLineIndex + 1)
-                : codeLineIndex + 1;
-              if (infoProps.highlightLines.includes(highlightLineNumber)) {
-                decorations.push(codeMarkDecorations["code-line-highlight"].range(line.from));
-              }
-            }
-
-            // Text highlights
-            if (!isFenceLine && infoProps.highlightText && infoProps.highlightText.length > 0) {
-              const lineText = view.state.sliceDoc(line.from, line.to);
-
-              for (const [highlightIndex, textHighlight] of infoProps.highlightText.entries()) {
-                try {
-                  const regex = new RegExp(textHighlight.pattern, "g");
-                  let match;
-
-                  while ((match = regex.exec(lineText)) !== null) {
-                    highlightInstanceCounters[highlightIndex] = (highlightInstanceCounters[highlightIndex] ?? 0) + 1;
-                    const globalMatchIndex = highlightInstanceCounters[highlightIndex];
-
-                    // Check if this global instance should be highlighted
-                    const shouldHighlight = !textHighlight.instances || textHighlight.instances.includes(globalMatchIndex);
-
-                    if (shouldHighlight) {
-                      const matchFrom = line.from + match.index;
-                      const matchTo = matchFrom + match[0].length;
-                      decorations.push(codeMarkDecorations["code-text-highlight"].range(matchFrom, matchTo));
-                    }
-                  }
-                } catch {
-                  // Invalid regex, skip
-                }
-              }
-            }
-
-            // Increment code line index (only for non-fence lines)
-            if (!isFenceLine) {
-              codeLineIndex++;
-            }
-          }
-
-          // Find CodeMark and CodeInfo children
-          for (let child = node.node.firstChild; child; child = child.nextSibling) {
-            if (child.name === "CodeMark" || child.name === "CodeInfo") {
-              if (cursorInRange) {
-                // Show fence markers with styling when cursor is in range
-                decorations.push(codeMarkDecorations["code-fence"].range(child.from, child.to));
-              } else {
-                // Hide fence markers when cursor is not in range
-                decorations.push(codeMarkDecorations["code-hidden"].range(child.from, child.to));
-              }
-            }
-          }
-
-          // Add caption widget when cursor not in range and caption is set
-          if (!cursorInRange && infoProps.caption) {
-            decorations.push(
-              Decoration.widget({
-                widget: new CodeBlockCaptionWidget(infoProps.caption),
-                block: false,
-                side: 1, // After the content
-              }).range(nodeLineEnd.to)
-            );
-          }
+        if (node.name === "FencedCode") {
+          this.decorateFencedCode(node, ctx);
         }
       },
     });
+  }
+
+  private decorateInlineCode(node: { from: number; to: number; node: SyntaxNode }, ctx: DecorationContext): void {
+    const { from, to } = node;
+    ctx.decorations.push(codeMarkDecorations["inline-code"].range(from, to));
+
+    if (ctx.selectionOverlapsRange(from, to)) {
+      return;
+    }
+
+    for (let child = node.node.firstChild; child; child = child.nextSibling) {
+      if (child.name === "CodeMark") {
+        ctx.decorations.push(codeMarkDecorations["inline-mark"].range(child.from, child.to));
+      }
+    }
+  }
+
+  private decorateFencedCode(node: { from: number; to: number; node: SyntaxNode }, ctx: DecorationContext): void {
+    const { view, decorations } = ctx;
+    const nodeLineStart = view.state.doc.lineAt(node.from);
+    const nodeLineEnd = view.state.doc.lineAt(node.to);
+    const cursorInRange = ctx.selectionOverlapsRange(nodeLineStart.from, nodeLineEnd.to);
+
+    let infoProps: CodeBlockProperties = { language: "" };
+    let codeContent = "";
+
+    for (let child = node.node.firstChild; child; child = child.nextSibling) {
+      if (child.name === "CodeInfo") {
+        infoProps = this.parseCodeInfo(view.state.sliceDoc(child.from, child.to).trim());
+      }
+      if (child.name === "CodeText") {
+        codeContent = view.state.sliceDoc(child.from, child.to);
+      }
+    }
+
+    const codeLines: string[] = [];
+    for (let i = nodeLineStart.number + 1; i <= nodeLineEnd.number - 1; i++) {
+      const codeLine = view.state.doc.line(i);
+      codeLines.push(view.state.sliceDoc(codeLine.from, codeLine.to));
+    }
+
+    const totalCodeLines = nodeLineEnd.number - nodeLineStart.number - 1;
+    const startLineNum = typeof infoProps.showLineNumbers === "number" ? infoProps.showLineNumbers : 1;
+    const maxLineNum = startLineNum + totalCodeLines - 1;
+    const lineNumWidth = Math.max(String(maxLineNum).length, String(startLineNum).length);
+    const highlightInstanceCounters = new Array(infoProps.highlightText?.length ?? 0).fill(0);
+
+    const diffStates = infoProps.diff ? this.analyzeDiffLines(codeLines) : [];
+    const displayLineNumbers = infoProps.diff
+      ? this.computeDiffDisplayLineNumbers(diffStates, startLineNum)
+      : codeLines.map((_, index) => startLineNum + index);
+    const diffHighlightLineNumbers = infoProps.diff ? this.computeDiffDisplayLineNumbers(diffStates, 1) : [];
+
+    const shouldShowHeader = !cursorInRange && (infoProps.title || infoProps.copy || infoProps.language);
+    const shouldShowCaption = !cursorInRange && !!infoProps.caption;
+
+    if (shouldShowHeader) {
+      decorations.push(
+        Decoration.widget({
+          widget: new CodeBlockHeaderWidget(infoProps, codeContent),
+          block: false,
+          side: -1,
+        }).range(nodeLineStart.from)
+      );
+    }
+
+    let codeLineIndex = 0;
+    for (let lineNumber = nodeLineStart.number; lineNumber <= nodeLineEnd.number; lineNumber++) {
+      const line = view.state.doc.line(lineNumber);
+      const isFenceLine = lineNumber === nodeLineStart.number || lineNumber === nodeLineEnd.number;
+      const relativeLineNum = displayLineNumbers[codeLineIndex] ?? startLineNum + codeLineIndex;
+
+      decorations.push(codeMarkDecorations["code-block-line"].range(line.from));
+
+      if (lineNumber === nodeLineStart.number) {
+        decorations.push(codeMarkDecorations["code-block-line-start"].range(line.from));
+        if (shouldShowHeader) {
+          decorations.push(Decoration.line({ class: "cm-draftly-code-block-has-header" }).range(line.from));
+        }
+      }
+
+      if (lineNumber === nodeLineEnd.number) {
+        decorations.push(codeMarkDecorations["code-block-line-end"].range(line.from));
+        if (shouldShowCaption) {
+          decorations.push(Decoration.line({ class: "cm-draftly-code-block-has-caption" }).range(line.from));
+        }
+      }
+
+      if (!isFenceLine && infoProps.showLineNumbers) {
+        decorations.push(
+          Decoration.line({
+            class: "cm-draftly-code-line-numbered",
+            attributes: {
+              "data-line-num": String(relativeLineNum),
+              style: `--line-num-width: ${lineNumWidth}ch`,
+            },
+          }).range(line.from)
+        );
+      }
+
+      if (!isFenceLine && infoProps.diff) {
+        this.decorateDiffLine(line, codeLineIndex, diffStates, cursorInRange, decorations);
+      }
+
+      if (!isFenceLine && infoProps.highlightLines) {
+        const highlightLineNumber = infoProps.diff
+          ? (diffHighlightLineNumbers[codeLineIndex] ?? codeLineIndex + 1)
+          : codeLineIndex + 1;
+        if (infoProps.highlightLines.includes(highlightLineNumber)) {
+          decorations.push(codeMarkDecorations["code-line-highlight"].range(line.from));
+        }
+      }
+
+      if (!isFenceLine && infoProps.highlightText?.length) {
+        this.decorateTextHighlights(
+          line.from,
+          view.state.sliceDoc(line.from, line.to),
+          infoProps.highlightText,
+          highlightInstanceCounters,
+          decorations
+        );
+      }
+
+      if (!isFenceLine) {
+        codeLineIndex++;
+      }
+    }
+
+    this.decorateFenceMarkers(node.node, cursorInRange, decorations);
+
+    if (!cursorInRange && infoProps.caption) {
+      decorations.push(
+        Decoration.widget({
+          widget: new CodeBlockCaptionWidget(infoProps.caption),
+          block: false,
+          side: 1,
+        }).range(nodeLineEnd.to)
+      );
+    }
+  }
+
+  private decorateFenceMarkers(
+    node: SyntaxNode,
+    cursorInRange: boolean,
+    decorations: DecorationContext["decorations"]
+  ): void {
+    for (let child = node.firstChild; child; child = child.nextSibling) {
+      if (child.name === "CodeMark" || child.name === "CodeInfo") {
+        decorations.push(
+          (cursorInRange ? codeMarkDecorations["code-fence"] : codeMarkDecorations["code-hidden"]).range(
+            child.from,
+            child.to
+          )
+        );
+      }
+    }
+  }
+
+  private decorateDiffLine(
+    line: { from: number; to: number },
+    codeLineIndex: number,
+    diffStates: DiffLineState[],
+    cursorInRange: boolean,
+    decorations: DecorationContext["decorations"]
+  ): void {
+    const diffState = diffStates[codeLineIndex];
+    const diffMarker = diffState?.kind === "addition" ? "+" : diffState?.kind === "deletion" ? "-" : "";
+
+    decorations.push(
+      Decoration.line({
+        class: "cm-draftly-code-line-diff-gutter",
+        attributes: {
+          "data-diff-marker": diffMarker,
+        },
+      }).range(line.from)
+    );
+
+    if (diffState?.kind === "addition") {
+      decorations.push(codeMarkDecorations["diff-line-add"].range(line.from));
+      if (cursorInRange && line.to > line.from) {
+        decorations.push(codeMarkDecorations["diff-sign-add"].range(line.from, line.from + 1));
+      }
+    }
+
+    if (diffState?.kind === "deletion") {
+      decorations.push(codeMarkDecorations["diff-line-del"].range(line.from));
+      if (cursorInRange && line.to > line.from) {
+        decorations.push(codeMarkDecorations["diff-sign-del"].range(line.from, line.from + 1));
+      }
+    }
+
+    if (
+      !cursorInRange &&
+      line.to > line.from &&
+      (diffState?.escapedMarker || diffState?.kind === "addition" || diffState?.kind === "deletion")
+    ) {
+      decorations.push(codeMarkDecorations["diff-escape-hidden"].range(line.from, line.from + 1));
+    }
+
+    if (diffState?.modificationRanges?.length) {
+      for (const [start, end] of diffState.modificationRanges) {
+        const rangeFrom = line.from + diffState.contentOffset + start;
+        const rangeTo = line.from + diffState.contentOffset + end;
+        if (rangeTo > rangeFrom) {
+          decorations.push(
+            (diffState.kind === "addition"
+              ? codeMarkDecorations["diff-mod-add"]
+              : codeMarkDecorations["diff-mod-del"]
+            ).range(rangeFrom, rangeTo)
+          );
+        }
+      }
+    }
+  }
+
+  private decorateTextHighlights(
+    lineFrom: number,
+    lineText: string,
+    highlights: TextHighlight[],
+    instanceCounters: number[],
+    decorations: DecorationContext["decorations"]
+  ): void {
+    for (const [highlightIndex, textHighlight] of highlights.entries()) {
+      try {
+        const regex = new RegExp(textHighlight.pattern, "g");
+        let match: RegExpExecArray | null;
+
+        while ((match = regex.exec(lineText)) !== null) {
+          instanceCounters[highlightIndex] = (instanceCounters[highlightIndex] ?? 0) + 1;
+          const globalMatchIndex = instanceCounters[highlightIndex];
+          const shouldHighlight = !textHighlight.instances || textHighlight.instances.includes(globalMatchIndex);
+
+          if (shouldHighlight) {
+            const matchFrom = lineFrom + match.index;
+            const matchTo = matchFrom + match[0].length;
+            decorations.push(codeMarkDecorations["code-text-highlight"].range(matchFrom, matchTo));
+          }
+        }
+      } catch {
+        // Invalid regex; ignore this highlight pattern.
+      }
+    }
   }
 
   /**
    * Render code elements to HTML for static preview.
    * Applies syntax highlighting using @lezer/highlight.
    */
-  override async renderToHTML(
-    node: SyntaxNode,
-    children: string,
-    ctx: {
-      sliceDoc(from: number, to: number): string;
-      sanitize(html: string): string;
-      syntaxHighlighters?: readonly Highlighter[];
-    }
-  ): Promise<string | null> {
+  override async renderToHTML(node: SyntaxNode, _children: string, ctx: PreviewRenderContext): Promise<string | null> {
     // Hide CodeMark (backticks)
     if (node.name === "CodeMark") {
       return "";
@@ -895,6 +872,31 @@ export class CodePlugin extends DecorationPlugin {
     }
 
     return null;
+  }
+
+  /** Parse comma-separated numbers and ranges (e.g. "1,3-5") into [1,3,4,5]. */
+  private parseNumberList(value: string): number[] {
+    const result: number[] = [];
+
+    for (const part of value.split(",")) {
+      const trimmed = part.trim();
+      const rangeMatch = trimmed.match(/^(\d+)-(\d+)$/);
+
+      if (rangeMatch && rangeMatch[1] && rangeMatch[2]) {
+        const start = parseInt(rangeMatch[1], 10);
+        const end = parseInt(rangeMatch[2], 10);
+        for (let i = start; i <= end; i++) {
+          result.push(i);
+        }
+        continue;
+      }
+
+      if (/^\d+$/.test(trimmed)) {
+        result.push(parseInt(trimmed, 10));
+      }
+    }
+
+    return result;
   }
 
   /**
@@ -1304,389 +1306,3 @@ export class CodePlugin extends DecorationPlugin {
     return result;
   }
 }
-
-// ============================================================================
-// Theme
-// ============================================================================
-
-/** Theme styles for code elements (light and dark modes) */
-const theme = createTheme({
-  default: {
-    // Inline code
-    ".cm-draftly-code-inline": {
-      fontFamily: "var(--font-jetbrains-mono, monospace)",
-      fontSize: "0.9rem",
-      backgroundColor: "rgba(0, 0, 0, 0.05)",
-      padding: "0.1rem 0.25rem",
-      border: "1px solid var(--color-border)",
-      borderRadius: "3px",
-    },
-
-    // Fenced code block lines
-    ".cm-draftly-code-block-line": {
-      "--radius": "0.375rem",
-
-      fontFamily: "var(--font-jetbrains-mono, monospace)",
-      fontSize: "0.9rem",
-      backgroundColor: "rgba(0, 0, 0, 0.03)",
-      padding: "0 1rem !important",
-      lineHeight: "1.5",
-      borderLeft: "1px solid var(--color-border)",
-      borderRight: "1px solid var(--color-border)",
-    },
-
-    // First line of code block
-    ".cm-draftly-code-block-line-start": {
-      borderTopLeftRadius: "var(--radius)",
-      borderTopRightRadius: "var(--radius)",
-      position: "relative",
-      overflow: "hidden",
-      borderTop: "1px solid var(--color-border)",
-      paddingBottom: "0.5rem !important",
-    },
-
-    // Remove top radius when header is present
-    ".cm-draftly-code-block-has-header": {
-      padding: "0 !important",
-      paddingBottom: "0.5rem !important",
-    },
-
-    // Code block header widget
-    ".cm-draftly-code-header": {
-      display: "flex",
-      justifyContent: "space-between",
-      alignItems: "center",
-      padding: "0.25rem 1rem",
-      backgroundColor: "rgba(0, 0, 0, 0.06)",
-      fontFamily: "var(--font-jetbrains-mono, monospace)",
-      fontSize: "0.85rem",
-    },
-
-    ".cm-draftly-code-header-left": {
-      display: "flex",
-      alignItems: "center",
-      gap: "0.5rem",
-    },
-
-    ".cm-draftly-code-header-title": {
-      color: "var(--color-text, inherit)",
-      fontWeight: "500",
-    },
-
-    ".cm-draftly-code-header-lang": {
-      color: "#6a737d",
-      opacity: "0.8",
-    },
-
-    ".cm-draftly-code-header-right": {
-      display: "flex",
-      alignItems: "center",
-      gap: "0.5rem",
-    },
-
-    ".cm-draftly-code-copy-btn": {
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      padding: "0.25rem",
-      backgroundColor: "transparent",
-      border: "none",
-      borderRadius: "4px",
-      cursor: "pointer",
-      color: "#6a737d",
-      transition: "color 0.2s, background-color 0.2s",
-    },
-
-    ".cm-draftly-code-copy-btn:hover": {
-      backgroundColor: "rgba(0, 0, 0, 0.1)",
-      color: "var(--color-text, inherit)",
-    },
-
-    ".cm-draftly-code-copy-btn.copied": {
-      color: "#22c55e",
-    },
-
-    // Caption (below code block)
-    ".cm-draftly-code-block-has-caption": {
-      padding: "0 !important",
-      paddingTop: "0.5rem !important",
-    },
-
-    ".cm-draftly-code-caption": {
-      textAlign: "center",
-      fontSize: "0.85rem",
-      color: "#6a737d",
-      fontStyle: "italic",
-      padding: "0.25rem 1rem",
-      backgroundColor: "rgba(0, 0, 0, 0.06)",
-    },
-
-    // Last line of code block
-    ".cm-draftly-code-block-line-end": {
-      borderBottomLeftRadius: "var(--radius)",
-      borderBottomRightRadius: "var(--radius)",
-      borderBottom: "1px solid var(--color-border)",
-      paddingTop: "0.5rem !important",
-    },
-
-    ".cm-draftly-code-block-line-end br": {
-      display: "none",
-    },
-
-    // Fence markers (```)
-    ".cm-draftly-code-fence": {
-      color: "#6a737d",
-      fontFamily: "var(--font-jetbrains-mono, monospace)",
-    },
-
-    // Line numbers
-    ".cm-draftly-code-line-numbered": {
-      paddingLeft: "calc(var(--line-num-width, 2ch) + 1rem) !important",
-      position: "relative",
-    },
-
-    ".cm-draftly-code-line-numbered::before": {
-      content: "attr(data-line-num)",
-      position: "absolute",
-      left: "0.5rem",
-      top: "0.2rem",
-      width: "var(--line-num-width, 2ch)",
-      textAlign: "right",
-      color: "#6a737d",
-      opacity: "0.6",
-      fontFamily: "var(--font-jetbrains-mono, monospace)",
-      fontSize: "0.85rem",
-      userSelect: "none",
-    },
-
-    ".cm-draftly-code-line-diff-gutter": {
-      paddingLeft: "calc(var(--line-num-width, 2ch) + 2rem) !important",
-    },
-
-    ".cm-draftly-code-line-diff-gutter::after": {
-      content: "attr(data-diff-marker)",
-      position: "absolute",
-      left: "calc(0.5rem + var(--line-num-width, 2ch) + 0.35rem)",
-      top: "0.1rem",
-      width: "1ch",
-      textAlign: "center",
-      fontFamily: "var(--font-jetbrains-mono, monospace)",
-      fontSize: "0.85rem",
-      fontWeight: "700",
-      userSelect: "none",
-    },
-
-    // Preview: code lines (need block display for full-width highlights)
-    ".cm-draftly-code-line": {
-      display: "block",
-      position: "relative",
-      paddingLeft: "1rem",
-      paddingRight: "1rem",
-      lineHeight: "1.5",
-      borderLeft: "3px solid transparent",
-    },
-
-    // Line highlight
-    ".cm-draftly-code-line-highlight": {
-      backgroundColor: "rgba(255, 220, 100, 0.2) !important",
-      borderLeft: "3px solid #f0b429 !important",
-    },
-
-    ".cm-draftly-code-line-diff-add": {
-      color: "inherit",
-      backgroundColor: "rgba(34, 197, 94, 0.12) !important",
-      borderLeft: "3px solid #22c55e !important",
-    },
-
-    ".cm-draftly-code-line-diff-del": {
-      color: "inherit",
-      backgroundColor: "rgba(239, 68, 68, 0.12) !important",
-      borderLeft: "3px solid #ef4444 !important",
-    },
-
-    ".cm-draftly-code-diff-sign-add": {
-      color: "#16a34a",
-      fontWeight: "700",
-    },
-
-    ".cm-draftly-code-diff-sign-del": {
-      color: "#dc2626",
-      fontWeight: "700",
-    },
-
-    ".cm-draftly-code-line-diff-add.cm-draftly-code-line-diff-gutter::after": {
-      color: "#16a34a",
-    },
-
-    ".cm-draftly-code-line-diff-del.cm-draftly-code-line-diff-gutter::after": {
-      color: "#dc2626",
-    },
-
-    ".cm-draftly-code-diff-mod-add": {
-      color: "inherit",
-      backgroundColor: "rgba(34, 197, 94, 0.25)",
-      borderRadius: "2px",
-      padding: "0.1rem 0",
-    },
-
-    ".cm-draftly-code-diff-mod-del": {
-      color: "inherit",
-      backgroundColor: "rgba(239, 68, 68, 0.25)",
-      borderRadius: "2px",
-      padding: "0.1rem 0",
-    },
-
-    // Text highlight
-    ".cm-draftly-code-text-highlight": {
-      color: "inherit",
-      backgroundColor: "rgba(255, 220, 100, 0.4)",
-      borderRadius: "2px",
-      padding: "0.1rem 0",
-    },
-    // Preview: container wrapper
-    ".cm-draftly-code-container": {
-      margin: "1rem 0",
-      borderRadius: "var(--radius)",
-      overflow: "hidden",
-      border: "1px solid var(--color-border)",
-    },
-
-    // Preview: header inside container
-    ".cm-draftly-code-container .cm-draftly-code-header": {
-      borderRadius: "0",
-      border: "none",
-      borderBottom: "1px solid var(--color-border)",
-    },
-
-    // Preview: code block inside container
-    ".cm-draftly-code-container .cm-draftly-code-block": {
-      margin: "0",
-      borderRadius: "0",
-      border: "none",
-      whiteSpace: "pre-wrap",
-    },
-
-    // Preview: caption inside container
-    ".cm-draftly-code-container .cm-draftly-code-caption": {
-      borderTop: "1px solid var(--color-border)",
-    },
-
-    // Preview: standalone code block (not in container)
-    ".cm-draftly-code-block": {
-      fontFamily: "var(--font-jetbrains-mono, monospace)",
-      fontSize: "0.9rem",
-      backgroundColor: "rgba(0, 0, 0, 0.03)",
-      padding: "1rem",
-      overflow: "auto",
-      position: "relative",
-      borderRadius: "var(--radius)",
-      border: "1px solid var(--color-border)",
-    },
-
-    // Preview: code block with header (remove top radius)
-    ".cm-draftly-code-block.cm-draftly-code-block-has-header": {
-      borderTopLeftRadius: "0",
-      borderTopRightRadius: "0",
-      borderTop: "none",
-      margin: "0",
-      paddingTop: "0.5rem !important",
-    },
-
-    // Preview: code block with caption (remove bottom radius)
-    ".cm-draftly-code-block.cm-draftly-code-block-has-caption": {
-      borderBottomLeftRadius: "0",
-      borderBottomRightRadius: "0",
-      borderBottom: "none",
-      paddingBottom: "0.5rem !important",
-    },
-  },
-
-  dark: {
-    ".cm-draftly-code-inline": {
-      backgroundColor: "rgba(255, 255, 255, 0.1)",
-    },
-
-    ".cm-draftly-code-block-line": {
-      backgroundColor: "rgba(255, 255, 255, 0.05)",
-    },
-
-    ".cm-draftly-code-fence": {
-      color: "#8b949e",
-    },
-
-    ".cm-draftly-code-block": {
-      backgroundColor: "rgba(255, 255, 255, 0.05)",
-    },
-
-    ".cm-draftly-code-header": {
-      backgroundColor: "rgba(255, 255, 255, 0.08)",
-    },
-
-    ".cm-draftly-code-header-lang": {
-      color: "#8b949e",
-    },
-
-    ".cm-draftly-code-copy-btn": {
-      color: "#8b949e",
-    },
-
-    ".cm-draftly-code-copy-btn:hover": {
-      backgroundColor: "rgba(255, 255, 255, 0.1)",
-    },
-
-    ".cm-draftly-code-caption": {
-      backgroundColor: "rgba(255, 255, 255, 0.05)",
-    },
-
-    ".cm-draftly-code-line-numbered::before": {
-      color: "#8b949e",
-    },
-
-    ".cm-draftly-code-line-diff-gutter::after": {
-      color: "#8b949e",
-    },
-
-    ".cm-draftly-code-line-highlight": {
-      backgroundColor: "rgba(255, 220, 100, 0.15) !important",
-      borderLeft: "3px solid #d9a520 !important",
-    },
-
-    ".cm-draftly-code-line-diff-add": {
-      backgroundColor: "rgba(34, 197, 94, 0.15) !important",
-      borderLeft: "3px solid #22c55e !important",
-    },
-
-    ".cm-draftly-code-line-diff-del": {
-      backgroundColor: "rgba(239, 68, 68, 0.15) !important",
-      borderLeft: "3px solid #ef4444 !important",
-    },
-
-    ".cm-draftly-code-diff-sign-add": {
-      color: "#4ade80",
-    },
-
-    ".cm-draftly-code-diff-sign-del": {
-      color: "#f87171",
-    },
-
-    ".cm-draftly-code-line-diff-add.cm-draftly-code-line-diff-gutter::after": {
-      color: "#4ade80",
-    },
-
-    ".cm-draftly-code-line-diff-del.cm-draftly-code-line-diff-gutter::after": {
-      color: "#f87171",
-    },
-
-    ".cm-draftly-code-diff-mod-add": {
-      backgroundColor: "rgba(34, 197, 94, 0.3)",
-    },
-
-    ".cm-draftly-code-diff-mod-del": {
-      backgroundColor: "rgba(239, 68, 68, 0.3)",
-    },
-
-    ".cm-draftly-code-text-highlight": {
-      backgroundColor: "rgba(255, 220, 100, 0.3)",
-    },
-  },
-});
