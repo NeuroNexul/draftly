@@ -1092,6 +1092,7 @@ const theme = createTheme({
 
     // Text highlight
     ".cm-draftly-code-text-highlight": {
+      color: "inherit",
       backgroundColor: "rgba(255, 220, 100, 0.4)",
       borderRadius: "2px",
       padding: "0.1rem 0",
