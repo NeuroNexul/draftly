@@ -41,6 +41,15 @@ const codeMarkDecorations = {
   // Highlights
   "code-line-highlight": Decoration.line({ class: "cm-draftly-code-line-highlight" }),
   "code-text-highlight": Decoration.mark({ class: "cm-draftly-code-text-highlight" }),
+
+  // Diff preview
+  "diff-line-add": Decoration.line({ class: "cm-draftly-code-line-diff-add" }),
+  "diff-line-del": Decoration.line({ class: "cm-draftly-code-line-diff-del" }),
+  "diff-sign-add": Decoration.mark({ class: "cm-draftly-code-diff-sign-add" }),
+  "diff-sign-del": Decoration.mark({ class: "cm-draftly-code-diff-sign-del" }),
+  "diff-mod-add": Decoration.mark({ class: "cm-draftly-code-diff-mod-add" }),
+  "diff-mod-del": Decoration.mark({ class: "cm-draftly-code-diff-mod-del" }),
+  "diff-escape-hidden": Decoration.replace({}),
 };
 
 /**
@@ -70,10 +79,22 @@ export interface CodeBlockProperties {
   caption?: string;
   /** Show copy button */
   copy?: boolean;
+  /** Enable diff preview mode */
+  diff?: boolean;
   /** Lines to highlight (e.g., [2,3,4,5,9]) */
   highlightLines?: number[];
   /** Text patterns to highlight with optional instance selection */
   highlightText?: TextHighlight[];
+}
+
+type DiffLineKind = "normal" | "addition" | "deletion";
+
+interface DiffLineState {
+  kind: DiffLineKind;
+  content: string;
+  contentOffset: number;
+  escapedMarker: boolean;
+  modificationRanges?: Array<[number, number]>;
 }
 
 // ============================================================================
@@ -318,6 +339,7 @@ export class CodePlugin extends DecorationPlugin {
    *   lineNumbers: 5,
    *   title: "hello.tsx",
    *   copy: true,
+   *   diff: false,
    *   highlightLines: [2,3,4,5],
    *   highlightText: [{ pattern: "Hello", instances: [3,4,5] }]
    * }
@@ -370,6 +392,12 @@ export class CodePlugin extends DecorationPlugin {
     if (/\bcopy\b/.test(remaining)) {
       props.copy = true;
       remaining = remaining.replace(/\bcopy\b/, "").trim();
+    }
+
+    // Check for diff flag
+    if (/\bdiff\b/.test(remaining)) {
+      props.diff = true;
+      remaining = remaining.replace(/\bdiff\b/, "").trim();
     }
 
     // Extract line highlights {2-4,5,9}
@@ -512,6 +540,17 @@ export class CodePlugin extends DecorationPlugin {
             }
           }
 
+          const codeLinesForDiff: string[] = [];
+          for (let i = nodeLineStart.number + 1; i <= nodeLineEnd.number - 1; i++) {
+            const codeLine = view.state.doc.line(i);
+            codeLinesForDiff.push(view.state.sliceDoc(codeLine.from, codeLine.to));
+          }
+          const diffStates = infoProps.diff ? this.analyzeDiffLines(codeLinesForDiff) : [];
+          const displayLineNumbers = infoProps.diff
+            ? this.computeDiffDisplayLineNumbers(diffStates, startLineNum)
+            : codeLinesForDiff.map((_, index) => startLineNum + index);
+          const diffHighlightLineNumbers = infoProps.diff ? this.computeDiffDisplayLineNumbers(diffStates, 1) : [];
+
           const shouldShowHeader = !cursorInRange && (infoProps.title || infoProps.copy || infoProps.language);
           const shouldShowCaption = !cursorInRange && infoProps.caption;
 
@@ -530,7 +569,7 @@ export class CodePlugin extends DecorationPlugin {
           for (let i = nodeLineStart.number; i <= nodeLineEnd.number; i++) {
             const line = view.state.doc.line(i);
             const isFenceLine = i === nodeLineStart.number || i === nodeLineEnd.number;
-            const relativeLineNum = startLineNum + codeLineIndex;
+            const relativeLineNum = displayLineNumbers[codeLineIndex] ?? startLineNum + codeLineIndex;
 
             // Base line decoration
             decorations.push(codeMarkDecorations["code-block-line"].range(line.from));
@@ -572,9 +611,63 @@ export class CodePlugin extends DecorationPlugin {
               );
             }
 
+            if (!isFenceLine && infoProps.diff) {
+              const diffState = diffStates[codeLineIndex];
+              const diffMarker = diffState?.kind === "addition" ? "+" : diffState?.kind === "deletion" ? "-" : "";
+
+              decorations.push(
+                Decoration.line({
+                  class: "cm-draftly-code-line-diff-gutter",
+                  attributes: {
+                    "data-diff-marker": diffMarker,
+                  },
+                }).range(line.from)
+              );
+
+              if (diffState?.kind === "addition") {
+                decorations.push(codeMarkDecorations["diff-line-add"].range(line.from));
+                if (cursorInRange && line.to > line.from) {
+                  decorations.push(codeMarkDecorations["diff-sign-add"].range(line.from, line.from + 1));
+                }
+              }
+
+              if (diffState?.kind === "deletion") {
+                decorations.push(codeMarkDecorations["diff-line-del"].range(line.from));
+                if (cursorInRange && line.to > line.from) {
+                  decorations.push(codeMarkDecorations["diff-sign-del"].range(line.from, line.from + 1));
+                }
+              }
+
+              if (!cursorInRange && diffState?.escapedMarker && line.to > line.from) {
+                decorations.push(codeMarkDecorations["diff-escape-hidden"].range(line.from, line.from + 1));
+              }
+
+              if (!cursorInRange && (diffState?.kind === "addition" || diffState?.kind === "deletion") && line.to > line.from) {
+                decorations.push(codeMarkDecorations["diff-escape-hidden"].range(line.from, line.from + 1));
+              }
+
+              if (diffState?.modificationRanges && diffState.modificationRanges.length > 0) {
+                for (const [start, end] of diffState.modificationRanges) {
+                  const rangeFrom = line.from + diffState.contentOffset + start;
+                  const rangeTo = line.from + diffState.contentOffset + end;
+                  if (rangeTo > rangeFrom) {
+                    decorations.push(
+                      (diffState.kind === "addition"
+                        ? codeMarkDecorations["diff-mod-add"]
+                        : codeMarkDecorations["diff-mod-del"]
+                      ).range(rangeFrom, rangeTo)
+                    );
+                  }
+                }
+              }
+            }
+
             // Line highlight (check if this line should be highlighted)
             if (!isFenceLine && infoProps.highlightLines) {
-              if (infoProps.highlightLines.includes(codeLineIndex + 1)) {
+              const highlightLineNumber = infoProps.diff
+                ? (diffHighlightLineNumbers[codeLineIndex] ?? codeLineIndex + 1)
+                : codeLineIndex + 1;
+              if (infoProps.highlightLines.includes(highlightLineNumber)) {
                 decorations.push(codeMarkDecorations["code-line-highlight"].range(line.from));
               }
             }
@@ -720,9 +813,19 @@ export class CodePlugin extends DecorationPlugin {
 
       // Calculate line number info
       const startLineNum = typeof props.showLineNumbers === "number" ? props.showLineNumbers : 1;
-      const lineNumWidth = String(startLineNum + codeLines.length - 1).length;
-      const highlightedLines = await this.highlightCodeLines(code, props.language || "", ctx.syntaxHighlighters);
       const previewHighlightCounters = new Array(props.highlightText?.length ?? 0).fill(0);
+      const diffStates = props.diff ? this.analyzeDiffLines(codeLines) : [];
+      const previewLineNumbers = props.diff
+        ? this.computeDiffDisplayLineNumbers(diffStates, startLineNum)
+        : codeLines.map((_, index) => startLineNum + index);
+      const previewHighlightLineNumbers = props.diff ? this.computeDiffDisplayLineNumbers(diffStates, 1) : [];
+      const lineNumWidth = String(Math.max(...previewLineNumbers, startLineNum)).length;
+      const previewContentLines = props.diff ? diffStates.map((state) => state.content) : codeLines;
+      const highlightedLines = await this.highlightCodeLines(
+        previewContentLines.join("\n"),
+        props.language || "",
+        ctx.syntaxHighlighters
+      );
 
       // Code block with line processing
       const hasHeader = showHeader ? " cm-draftly-code-block-has-header" : "";
@@ -732,13 +835,17 @@ export class CodePlugin extends DecorationPlugin {
 
       // Process each line
       codeLines.forEach((line, index) => {
-        const lineNum = startLineNum + index;
-        const isHighlighted = props.highlightLines?.includes(index + 1);
+        const lineNum = previewLineNumbers[index] ?? startLineNum + index;
+        const highlightLineNumber = props.diff ? (previewHighlightLineNumbers[index] ?? index + 1) : index + 1;
+        const isHighlighted = props.highlightLines?.includes(highlightLineNumber);
+        const diffState = props.diff ? diffStates[index] : undefined;
 
         // Line classes
         const lineClasses: string[] = ["cm-draftly-code-line"];
         if (isHighlighted) lineClasses.push("cm-draftly-code-line-highlight");
         if (props.showLineNumbers) lineClasses.push("cm-draftly-code-line-numbered");
+        if (diffState?.kind === "addition") lineClasses.push("cm-draftly-code-line-diff-add");
+        if (diffState?.kind === "deletion") lineClasses.push("cm-draftly-code-line-diff-del");
 
         // Line attributes
         const lineAttrs: string[] = [`class="${lineClasses.join(" ")}"`];
@@ -746,9 +853,20 @@ export class CodePlugin extends DecorationPlugin {
           lineAttrs.push(`data-line-num="${lineNum}"`);
           lineAttrs.push(`style="--line-num-width: ${lineNumWidth}ch"`);
         }
+        if (props.diff) {
+          const diffMarker = diffState?.kind === "addition" ? "+" : diffState?.kind === "deletion" ? "-" : "";
+          lineAttrs.push(`data-diff-marker="${diffMarker}"`);
+          lineClasses.push("cm-draftly-code-line-diff-gutter");
+          lineAttrs[0] = `class="${lineClasses.join(" ")}"`;
+        }
 
         // Highlight text content
-        let lineContent = highlightedLines[index] ?? this.escapeHtml(line);
+        const highlightedLine = highlightedLines[index] ?? this.escapeHtml(previewContentLines[index] ?? line);
+        let lineContent = highlightedLine;
+
+        if (diffState) {
+          lineContent = this.renderDiffPreviewLine(diffState, highlightedLine);
+        }
 
         // Apply text highlights
         if (props.highlightText && props.highlightText.length > 0) {
@@ -883,6 +1001,273 @@ export class CodePlugin extends DecorationPlugin {
 
   private escapeAttribute(value: string): string {
     return this.escapeHtml(value).replace(/`/g, "&#96;");
+  }
+
+  private analyzeDiffLines(lines: string[]): DiffLineState[] {
+    const states = lines.map((line) => this.parseDiffLineState(line));
+
+    let index = 0;
+    while (index < states.length) {
+      if (states[index]?.kind !== "deletion") {
+        index++;
+        continue;
+      }
+
+      const deletionStart = index;
+      while (index < states.length && states[index]?.kind === "deletion") {
+        index++;
+      }
+      const deletionEnd = index;
+
+      const additionStart = index;
+      while (index < states.length && states[index]?.kind === "addition") {
+        index++;
+      }
+      const additionEnd = index;
+
+      if (additionStart === additionEnd) {
+        continue;
+      }
+
+      const pairCount = Math.min(deletionEnd - deletionStart, additionEnd - additionStart);
+      for (let pairIndex = 0; pairIndex < pairCount; pairIndex++) {
+        const deletionState = states[deletionStart + pairIndex];
+        const additionState = states[additionStart + pairIndex];
+
+        if (!deletionState || !additionState) {
+          continue;
+        }
+
+        const ranges = this.computeChangedRanges(deletionState.content, additionState.content);
+        if (ranges.oldRanges.length > 0) {
+          deletionState.modificationRanges = ranges.oldRanges;
+        }
+        if (ranges.newRanges.length > 0) {
+          additionState.modificationRanges = ranges.newRanges;
+        }
+      }
+    }
+
+    return states;
+  }
+
+  private computeDiffDisplayLineNumbers(states: DiffLineState[], startLineNum: number): number[] {
+    const numbers = new Array(states.length).fill(startLineNum);
+    let currentLineNumber = startLineNum;
+    let index = 0;
+
+    while (index < states.length) {
+      const state = states[index];
+
+      if (!state) {
+        numbers[index] = currentLineNumber;
+        currentLineNumber++;
+        index++;
+        continue;
+      }
+
+      if (state.kind !== "deletion") {
+        numbers[index] = currentLineNumber;
+        currentLineNumber++;
+        index++;
+        continue;
+      }
+
+      const deletionStart = index;
+      while (index < states.length && states[index]?.kind === "deletion") {
+        index++;
+      }
+      const deletionEnd = index;
+
+      const additionStart = index;
+      while (index < states.length && states[index]?.kind === "addition") {
+        index++;
+      }
+      const additionEnd = index;
+
+      const deletionCount = deletionEnd - deletionStart;
+      const additionCount = additionEnd - additionStart;
+      const pairCount = Math.min(deletionCount, additionCount);
+
+      for (let pairIndex = 0; pairIndex < pairCount; pairIndex++) {
+        numbers[deletionStart + pairIndex] = currentLineNumber;
+        numbers[additionStart + pairIndex] = currentLineNumber;
+        currentLineNumber++;
+      }
+
+      for (let extraDeletionIndex = pairCount; extraDeletionIndex < deletionCount; extraDeletionIndex++) {
+        numbers[deletionStart + extraDeletionIndex] = currentLineNumber;
+        currentLineNumber++;
+      }
+
+      for (let extraAdditionIndex = pairCount; extraAdditionIndex < additionCount; extraAdditionIndex++) {
+        numbers[additionStart + extraAdditionIndex] = currentLineNumber;
+        currentLineNumber++;
+      }
+    }
+
+    return numbers;
+  }
+
+  private parseDiffLineState(line: string): DiffLineState {
+    const escapedMarker = line.startsWith("\\+") || line.startsWith("\\-");
+
+    if (escapedMarker) {
+      return {
+        kind: "normal",
+        content: line.slice(1),
+        contentOffset: 1,
+        escapedMarker: true,
+      };
+    }
+
+    if (line.startsWith("+")) {
+      return {
+        kind: "addition",
+        content: line.slice(1),
+        contentOffset: 1,
+        escapedMarker: false,
+      };
+    }
+
+    if (line.startsWith("-")) {
+      return {
+        kind: "deletion",
+        content: line.slice(1),
+        contentOffset: 1,
+        escapedMarker: false,
+      };
+    }
+
+    return {
+      kind: "normal",
+      content: line,
+      contentOffset: 0,
+      escapedMarker: false,
+    };
+  }
+
+  private computeChangedRanges(
+    oldText: string,
+    newText: string
+  ): { oldRanges: Array<[number, number]>; newRanges: Array<[number, number]> } {
+    let prefix = 0;
+    while (prefix < oldText.length && prefix < newText.length && oldText[prefix] === newText[prefix]) {
+      prefix++;
+    }
+
+    let oldSuffix = oldText.length;
+    let newSuffix = newText.length;
+    while (oldSuffix > prefix && newSuffix > prefix && oldText[oldSuffix - 1] === newText[newSuffix - 1]) {
+      oldSuffix--;
+      newSuffix--;
+    }
+
+    const oldRanges: Array<[number, number]> = [];
+    const newRanges: Array<[number, number]> = [];
+
+    if (oldSuffix > prefix) {
+      oldRanges.push([prefix, oldSuffix]);
+    }
+    if (newSuffix > prefix) {
+      newRanges.push([prefix, newSuffix]);
+    }
+
+    return { oldRanges, newRanges };
+  }
+
+  private renderDiffPreviewLine(diffState: DiffLineState, highlightedContent: string): string {
+    const modClass =
+      diffState.kind === "addition"
+        ? "cm-draftly-code-diff-mod-add"
+        : diffState.kind === "deletion"
+          ? "cm-draftly-code-diff-mod-del"
+          : "";
+
+    const baseHighlightedContent = highlightedContent || this.escapeHtml(diffState.content);
+
+    const contentHtml =
+      diffState.modificationRanges && modClass
+        ? this.applyRangesToHighlightedHTML(baseHighlightedContent, diffState.modificationRanges, modClass)
+        : baseHighlightedContent;
+
+    return contentHtml || " ";
+  }
+
+  private applyRangesToHighlightedHTML(
+    htmlContent: string,
+    ranges: Array<[number, number]>,
+    className: string
+  ): string {
+    const normalizedRanges = ranges
+      .map(([start, end]) => [Math.max(0, start), Math.max(0, end)] as [number, number])
+      .filter(([start, end]) => end > start)
+      .sort((a, b) => a[0] - b[0]);
+
+    if (normalizedRanges.length === 0 || !htmlContent) {
+      return htmlContent;
+    }
+
+    const isInsideRange = (position: number) => {
+      for (const [start, end] of normalizedRanges) {
+        if (position >= start && position < end) return true;
+        if (position < start) return false;
+      }
+      return false;
+    };
+
+    let result = "";
+    let htmlIndex = 0;
+    let textPosition = 0;
+    let markOpen = false;
+
+    while (htmlIndex < htmlContent.length) {
+      const char = htmlContent[htmlIndex];
+
+      if (char === "<") {
+        const tagEnd = htmlContent.indexOf(">", htmlIndex);
+        if (tagEnd === -1) {
+          result += htmlContent.slice(htmlIndex);
+          break;
+        }
+        result += htmlContent.slice(htmlIndex, tagEnd + 1);
+        htmlIndex = tagEnd + 1;
+        continue;
+      }
+
+      let token = char;
+      if (char === "&") {
+        const entityEnd = htmlContent.indexOf(";", htmlIndex);
+        if (entityEnd !== -1) {
+          token = htmlContent.slice(htmlIndex, entityEnd + 1);
+          htmlIndex = entityEnd + 1;
+        } else {
+          htmlIndex += 1;
+        }
+      } else {
+        htmlIndex += 1;
+      }
+
+      const shouldMark = isInsideRange(textPosition);
+
+      if (shouldMark && !markOpen) {
+        result += `<mark class="${className}">`;
+        markOpen = true;
+      }
+      if (!shouldMark && markOpen) {
+        result += "</mark>";
+        markOpen = false;
+      }
+
+      result += token;
+      textPosition += 1;
+    }
+
+    if (markOpen) {
+      result += "</mark>";
+    }
+
+    return result;
   }
 
   /**
@@ -1074,6 +1459,23 @@ const theme = createTheme({
       userSelect: "none",
     },
 
+    ".cm-draftly-code-line-diff-gutter": {
+      paddingLeft: "calc(var(--line-num-width, 2ch) + 2rem) !important",
+    },
+
+    ".cm-draftly-code-line-diff-gutter::after": {
+      content: "attr(data-diff-marker)",
+      position: "absolute",
+      left: "calc(0.5rem + var(--line-num-width, 2ch) + 0.35rem)",
+      top: "0.1rem",
+      width: "1ch",
+      textAlign: "center",
+      fontFamily: "var(--font-jetbrains-mono, monospace)",
+      fontSize: "0.85rem",
+      fontWeight: "700",
+      userSelect: "none",
+    },
+
     // Preview: code lines (need block display for full-width highlights)
     ".cm-draftly-code-line": {
       display: "block",
@@ -1088,6 +1490,50 @@ const theme = createTheme({
     ".cm-draftly-code-line-highlight": {
       backgroundColor: "rgba(255, 220, 100, 0.2) !important",
       borderLeft: "3px solid #f0b429 !important",
+    },
+
+    ".cm-draftly-code-line-diff-add": {
+      color: "inherit",
+      backgroundColor: "rgba(34, 197, 94, 0.12) !important",
+      borderLeft: "3px solid #22c55e !important",
+    },
+
+    ".cm-draftly-code-line-diff-del": {
+      color: "inherit",
+      backgroundColor: "rgba(239, 68, 68, 0.12) !important",
+      borderLeft: "3px solid #ef4444 !important",
+    },
+
+    ".cm-draftly-code-diff-sign-add": {
+      color: "#16a34a",
+      fontWeight: "700",
+    },
+
+    ".cm-draftly-code-diff-sign-del": {
+      color: "#dc2626",
+      fontWeight: "700",
+    },
+
+    ".cm-draftly-code-line-diff-add.cm-draftly-code-line-diff-gutter::after": {
+      color: "#16a34a",
+    },
+
+    ".cm-draftly-code-line-diff-del.cm-draftly-code-line-diff-gutter::after": {
+      color: "#dc2626",
+    },
+
+    ".cm-draftly-code-diff-mod-add": {
+      color: "inherit",
+      backgroundColor: "rgba(34, 197, 94, 0.25)",
+      borderRadius: "2px",
+      padding: "0.1rem 0",
+    },
+
+    ".cm-draftly-code-diff-mod-del": {
+      color: "inherit",
+      backgroundColor: "rgba(239, 68, 68, 0.25)",
+      borderRadius: "2px",
+      padding: "0.1rem 0",
     },
 
     // Text highlight
@@ -1196,9 +1642,47 @@ const theme = createTheme({
       color: "#8b949e",
     },
 
+    ".cm-draftly-code-line-diff-gutter::after": {
+      color: "#8b949e",
+    },
+
     ".cm-draftly-code-line-highlight": {
       backgroundColor: "rgba(255, 220, 100, 0.15) !important",
       borderLeft: "3px solid #d9a520 !important",
+    },
+
+    ".cm-draftly-code-line-diff-add": {
+      backgroundColor: "rgba(34, 197, 94, 0.15) !important",
+      borderLeft: "3px solid #22c55e !important",
+    },
+
+    ".cm-draftly-code-line-diff-del": {
+      backgroundColor: "rgba(239, 68, 68, 0.15) !important",
+      borderLeft: "3px solid #ef4444 !important",
+    },
+
+    ".cm-draftly-code-diff-sign-add": {
+      color: "#4ade80",
+    },
+
+    ".cm-draftly-code-diff-sign-del": {
+      color: "#f87171",
+    },
+
+    ".cm-draftly-code-line-diff-add.cm-draftly-code-line-diff-gutter::after": {
+      color: "#4ade80",
+    },
+
+    ".cm-draftly-code-line-diff-del.cm-draftly-code-line-diff-gutter::after": {
+      color: "#f87171",
+    },
+
+    ".cm-draftly-code-diff-mod-add": {
+      backgroundColor: "rgba(34, 197, 94, 0.3)",
+    },
+
+    ".cm-draftly-code-diff-mod-del": {
+      backgroundColor: "rgba(239, 68, 68, 0.3)",
     },
 
     ".cm-draftly-code-text-highlight": {
