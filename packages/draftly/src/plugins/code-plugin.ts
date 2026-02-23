@@ -63,7 +63,7 @@ export interface CodeBlockProperties {
   /** Language identifier (first token) */
   language: string;
   /** Show line numbers, optionally starting from a specific number */
-  lineNumbers?: number | boolean;
+  showLineNumbers?: number | boolean;
   /** Title to display */
   title?: string;
   /** Caption to display */
@@ -356,12 +356,12 @@ export class CodePlugin extends DecorationPlugin {
     remaining = remaining.replace(quotedPattern, "").trim();
 
     // Check for line-numbers with optional start value
-    const lineNumbersMatch = remaining.match(/line-numbers(?:\{(\d+)\})?/);
+    const lineNumbersMatch = remaining.match(/showLineNumbers(?:\{(\d+)\})?/);
     if (lineNumbersMatch) {
       if (lineNumbersMatch[1]) {
-        props.lineNumbers = parseInt(lineNumbersMatch[1], 10);
+        props.showLineNumbers = parseInt(lineNumbersMatch[1], 10);
       } else {
-        props.lineNumbers = true;
+        props.showLineNumbers = true;
       }
       remaining = remaining.replace(lineNumbersMatch[0], "").trim();
     }
@@ -493,7 +493,7 @@ export class CodePlugin extends DecorationPlugin {
 
           // Calculate line number width for styling (if line numbers enabled)
           const totalCodeLines = nodeLineEnd.number - nodeLineStart.number - 1; // Exclude fence lines
-          const startLineNum = typeof infoProps.lineNumbers === "number" ? infoProps.lineNumbers : 1;
+          const startLineNum = typeof infoProps.showLineNumbers === "number" ? infoProps.showLineNumbers : 1;
           const maxLineNum = startLineNum + totalCodeLines - 1;
           const lineNumWidth = Math.max(String(maxLineNum).length, String(startLineNum).length);
 
@@ -560,7 +560,7 @@ export class CodePlugin extends DecorationPlugin {
             }
 
             // Line numbers (only for code lines, not fence lines)
-            if (!isFenceLine && infoProps.lineNumbers) {
+            if (!isFenceLine && infoProps.showLineNumbers) {
               decorations.push(
                 Decoration.line({
                   class: "cm-draftly-code-line-numbered",
@@ -719,7 +719,7 @@ export class CodePlugin extends DecorationPlugin {
       }
 
       // Calculate line number info
-      const startLineNum = typeof props.lineNumbers === "number" ? props.lineNumbers : 1;
+      const startLineNum = typeof props.showLineNumbers === "number" ? props.showLineNumbers : 1;
       const lineNumWidth = String(startLineNum + codeLines.length - 1).length;
       const highlightedLines = await this.highlightCodeLines(code, props.language || "", ctx.syntaxHighlighters);
       const previewHighlightCounters = new Array(props.highlightText?.length ?? 0).fill(0);
@@ -738,11 +738,11 @@ export class CodePlugin extends DecorationPlugin {
         // Line classes
         const lineClasses: string[] = ["cm-draftly-code-line"];
         if (isHighlighted) lineClasses.push("cm-draftly-code-line-highlight");
-        if (props.lineNumbers) lineClasses.push("cm-draftly-code-line-numbered");
+        if (props.showLineNumbers) lineClasses.push("cm-draftly-code-line-numbered");
 
         // Line attributes
         const lineAttrs: string[] = [`class="${lineClasses.join(" ")}"`];
-        if (props.lineNumbers) {
+        if (props.showLineNumbers) {
           lineAttrs.push(`data-line-num="${lineNum}"`);
           lineAttrs.push(`style="--line-num-width: ${lineNumWidth}ch"`);
         }
