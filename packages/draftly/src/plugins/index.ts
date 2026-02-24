@@ -12,6 +12,7 @@ export { MermaidPlugin } from "./mermaid-plugin";
 export { CodePlugin } from "./code-plugin";
 export { QuotePlugin } from "./quote-plugin";
 export { HRPlugin } from "./hr-plugin";
+export { EmojiPlugin } from "./emoji-plugin";
 
 // Plugin collections
 import { DraftlyPlugin } from "../editor/plugin";
@@ -28,6 +29,7 @@ import { MermaidPlugin } from "./mermaid-plugin";
 import { CodePlugin } from "./code-plugin";
 import { QuotePlugin } from "./quote-plugin";
 import { HRPlugin } from "./hr-plugin";
+import { EmojiPlugin } from "./emoji-plugin";
 
 /**
  * Default plugins
@@ -48,6 +50,7 @@ const essentialPlugins: DraftlyPlugin[] = [
   new CodePlugin(),
   new QuotePlugin(),
   new HRPlugin(),
+  new EmojiPlugin(),
 ];
 
 /**
