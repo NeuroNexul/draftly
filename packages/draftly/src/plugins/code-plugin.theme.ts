@@ -150,20 +150,53 @@ export const codePluginTheme = createTheme({
       },
     },
 
-    ".cm-draftly-code-line-diff-gutter": {
-      paddingLeft: "calc(var(--line-num-width, 2ch) + 2rem) !important",
+    ".cm-draftly-code-line-numbered-diff": {
+      paddingLeft: "calc(var(--line-num-old-width, 2ch) + var(--line-num-new-width, 2ch) + 2.75rem) !important",
+      position: "relative",
 
-      "&::after": {
-        content: "attr(data-diff-marker)",
+      "&::before": {
+        content: "attr(data-line-num-old)",
         position: "absolute",
-        left: "calc(0.5rem + var(--line-num-width, 2ch) + 0.35rem)",
-        top: "0.1rem",
-        width: "1ch",
-        textAlign: "center",
+        left: "0.5rem",
+        top: "0.2rem",
+        width: "var(--line-num-old-width, 2ch)",
+        textAlign: "right",
+        color: "#6a737d",
+        opacity: "0.6",
         fontFamily: "var(--font-jetbrains-mono, monospace)",
         fontSize: "0.85rem",
-        fontWeight: "700",
         userSelect: "none",
+      },
+
+      "&::after": {
+        content: 'attr(data-line-num-new) " " attr(data-diff-marker)',
+        position: "absolute",
+        left: "calc(0.5rem + var(--line-num-old-width, 2ch) + 0.75rem)",
+        top: "0.2rem",
+        width: "calc(var(--line-num-new-width, 2ch) + 2ch)",
+        textAlign: "right",
+        color: "#6a737d",
+        opacity: "0.6",
+        fontFamily: "var(--font-jetbrains-mono, monospace)",
+        fontSize: "0.85rem",
+        userSelect: "none",
+      },
+
+      "&.cm-draftly-code-line-diff-gutter": {
+        paddingLeft: "calc(var(--line-num-width, 2ch) + 2rem) !important",
+
+        "&::after": {
+          content: "attr(data-diff-marker)",
+          position: "absolute",
+          left: "calc(0.5rem + var(--line-num-width, 2ch) + 0.35rem)",
+          top: "0.1rem",
+          width: "1ch",
+          textAlign: "right",
+          fontFamily: "var(--font-jetbrains-mono, monospace)",
+          fontSize: "0.85rem",
+          fontWeight: "700",
+          userSelect: "none",
+        },
       },
     },
 
@@ -327,6 +360,16 @@ export const codePluginTheme = createTheme({
 
     ".cm-draftly-code-line-numbered": {
       "&::before": {
+        color: "#8b949e",
+      },
+    },
+
+    ".cm-draftly-code-line-numbered-diff": {
+      "&::before": {
+        color: "#8b949e",
+      },
+
+      "&::after": {
         color: "#8b949e",
       },
     },

@@ -113,6 +113,11 @@ interface DiffLineState {
   modificationRanges?: Array<[number, number]>;
 }
 
+interface DiffDisplayLineNumbers {
+  oldLine: number | null;
+  newLine: number | null;
+}
+
 // ============================================================================
 // Widgets
 // ============================================================================
@@ -370,11 +375,25 @@ export class CodePlugin extends DecorationPlugin {
 
     let remaining = codeInfo.trim();
 
-    // Extract language (first word before any special tokens)
-    const langMatch = remaining.match(/^([^\s{]+)/);
-    if (langMatch && langMatch[1]) {
-      props.language = langMatch[1];
-      remaining = remaining.slice(langMatch[0].length).trim();
+    // Extract language (first token), but only when it isn't a known directive.
+    const firstTokenMatch = remaining.match(/^([^\s]+)/);
+    if (firstTokenMatch && firstTokenMatch[1]) {
+      const firstToken = firstTokenMatch[1];
+      const normalizedToken = firstToken.toLowerCase();
+      const isLineNumberDirective = /^(?:line-numbers|linenumbers|showlinenumbers)(?:\{\d+\})?$/.test(
+        normalizedToken
+      );
+      const isKnownDirective =
+        isLineNumberDirective ||
+        normalizedToken === "copy" ||
+        normalizedToken === "diff" ||
+        normalizedToken.startsWith("{") ||
+        normalizedToken.startsWith("/");
+
+      if (!isKnownDirective) {
+        props.language = firstToken;
+        remaining = remaining.slice(firstToken.length).trim();
+      }
     }
 
     // Extract quoted values (title="..." caption="...")
@@ -394,7 +413,7 @@ export class CodePlugin extends DecorationPlugin {
 
     // Check for line numbers with optional start value.
     // Supports both `line-numbers` and legacy `showLineNumbers` tokens.
-    const lineNumbersMatch = remaining.match(/\b(?:line-numbers|showLineNumbers)(?:\{(\d+)\})?\b/);
+    const lineNumbersMatch = remaining.match(/\b(?:line-numbers|lineNumbers|showLineNumbers)(?:\{(\d+)\})?/i);
     if (lineNumbersMatch) {
       if (lineNumbersMatch[1]) {
         props.showLineNumbers = parseInt(lineNumbersMatch[1], 10);
@@ -523,10 +542,25 @@ export class CodePlugin extends DecorationPlugin {
     const highlightInstanceCounters = new Array(infoProps.highlightText?.length ?? 0).fill(0);
 
     const diffStates = infoProps.diff ? this.analyzeDiffLines(codeLines) : [];
+    const diffDisplayLineNumbers = infoProps.diff ? this.computeDiffDisplayLineNumbers(diffStates, startLineNum) : [];
     const displayLineNumbers = infoProps.diff
-      ? this.computeDiffDisplayLineNumbers(diffStates, startLineNum)
+      ? diffDisplayLineNumbers.map((numbers, index) => numbers.newLine ?? numbers.oldLine ?? startLineNum + index)
       : codeLines.map((_, index) => startLineNum + index);
-    const diffHighlightLineNumbers = infoProps.diff ? this.computeDiffDisplayLineNumbers(diffStates, 1) : [];
+    const diffHighlightLineNumbers = infoProps.diff
+      ? this.computeDiffDisplayLineNumbers(diffStates, startLineNum).map(
+          (numbers, index) => numbers.newLine ?? numbers.oldLine ?? startLineNum + index
+        )
+      : [];
+    const maxOldDiffLineNum = diffDisplayLineNumbers.reduce((max, numbers) => {
+      const oldLine = numbers.oldLine ?? 0;
+      return oldLine > max ? oldLine : max;
+    }, startLineNum);
+    const maxNewDiffLineNum = diffDisplayLineNumbers.reduce((max, numbers) => {
+      const newLine = numbers.newLine ?? 0;
+      return newLine > max ? newLine : max;
+    }, startLineNum);
+    const diffOldLineNumWidth = Math.max(String(startLineNum).length, String(maxOldDiffLineNum).length);
+    const diffNewLineNumWidth = Math.max(String(startLineNum).length, String(maxNewDiffLineNum).length);
 
     const shouldShowHeader = !cursorInRange && (infoProps.title || infoProps.copy || infoProps.language);
     const shouldShowCaption = !cursorInRange && !!infoProps.caption;
@@ -563,7 +597,7 @@ export class CodePlugin extends DecorationPlugin {
         }
       }
 
-      if (!isFenceLine && infoProps.showLineNumbers) {
+      if (!isFenceLine && infoProps.showLineNumbers && !infoProps.diff) {
         decorations.push(
           Decoration.line({
             class: "cm-draftly-code-line-numbered",
@@ -575,14 +609,38 @@ export class CodePlugin extends DecorationPlugin {
         );
       }
 
+      if (!isFenceLine && infoProps.showLineNumbers && infoProps.diff) {
+        const diffLineNumbers = diffDisplayLineNumbers[codeLineIndex];
+        const diffState = diffStates[codeLineIndex];
+        const diffMarker = diffState?.kind === "addition" ? "+" : diffState?.kind === "deletion" ? "-" : " ";
+        decorations.push(
+          Decoration.line({
+            class: "cm-draftly-code-line-numbered-diff",
+            attributes: {
+              "data-line-num-old": diffLineNumbers?.oldLine != null ? String(diffLineNumbers.oldLine) : "",
+              "data-line-num-new": diffLineNumbers?.newLine != null ? String(diffLineNumbers.newLine) : "",
+              "data-diff-marker": diffMarker,
+              style: `--line-num-old-width: ${diffOldLineNumWidth}ch; --line-num-new-width: ${diffNewLineNumWidth}ch`,
+            },
+          }).range(line.from)
+        );
+      }
+
       if (!isFenceLine && infoProps.diff) {
-        this.decorateDiffLine(line, codeLineIndex, diffStates, cursorInRange, decorations);
+        this.decorateDiffLine(
+          line,
+          codeLineIndex,
+          diffStates,
+          cursorInRange,
+          !infoProps.showLineNumbers,
+          decorations
+        );
       }
 
       if (!isFenceLine && infoProps.highlightLines) {
         const highlightLineNumber = infoProps.diff
           ? (diffHighlightLineNumbers[codeLineIndex] ?? codeLineIndex + 1)
-          : codeLineIndex + 1;
+          : startLineNum + codeLineIndex;
         if (infoProps.highlightLines.includes(highlightLineNumber)) {
           decorations.push(codeMarkDecorations["code-line-highlight"].range(line.from));
         }
@@ -638,19 +696,22 @@ export class CodePlugin extends DecorationPlugin {
     codeLineIndex: number,
     diffStates: DiffLineState[],
     cursorInRange: boolean,
+    showDiffMarkerGutter: boolean,
     decorations: DecorationContext["decorations"]
   ): void {
     const diffState = diffStates[codeLineIndex];
-    const diffMarker = diffState?.kind === "addition" ? "+" : diffState?.kind === "deletion" ? "-" : "";
+    const diffMarker = diffState?.kind === "addition" ? "+" : diffState?.kind === "deletion" ? "-" : " ";
 
-    decorations.push(
-      Decoration.line({
-        class: "cm-draftly-code-line-diff-gutter",
-        attributes: {
-          "data-diff-marker": diffMarker,
-        },
-      }).range(line.from)
-    );
+    if (showDiffMarkerGutter) {
+      decorations.push(
+        Decoration.line({
+          class: "cm-draftly-code-line-diff-gutter",
+          attributes: {
+            "data-diff-marker": diffMarker,
+          },
+        }).range(line.from)
+      );
+    }
 
     if (diffState?.kind === "addition") {
       decorations.push(codeMarkDecorations["diff-line-add"].range(line.from));
@@ -792,11 +853,28 @@ export class CodePlugin extends DecorationPlugin {
       const startLineNum = typeof props.showLineNumbers === "number" ? props.showLineNumbers : 1;
       const previewHighlightCounters = new Array(props.highlightText?.length ?? 0).fill(0);
       const diffStates = props.diff ? this.analyzeDiffLines(codeLines) : [];
+      const previewDiffLineNumbers = props.diff ? this.computeDiffDisplayLineNumbers(diffStates, startLineNum) : [];
       const previewLineNumbers = props.diff
-        ? this.computeDiffDisplayLineNumbers(diffStates, startLineNum)
+        ? previewDiffLineNumbers.map((numbers, index) => numbers.newLine ?? numbers.oldLine ?? startLineNum + index)
         : codeLines.map((_, index) => startLineNum + index);
-      const previewHighlightLineNumbers = props.diff ? this.computeDiffDisplayLineNumbers(diffStates, 1) : [];
+      const previewHighlightLineNumbers = props.diff
+        ? this.computeDiffDisplayLineNumbers(diffStates, startLineNum).map(
+            (numbers, index) => numbers.newLine ?? numbers.oldLine ?? startLineNum + index
+          )
+        : [];
       const lineNumWidth = String(Math.max(...previewLineNumbers, startLineNum)).length;
+      const previewOldLineNumWidth = String(
+        Math.max(
+          ...previewDiffLineNumbers.map((numbers) => numbers.oldLine ?? 0),
+          startLineNum
+        )
+      ).length;
+      const previewNewLineNumWidth = String(
+        Math.max(
+          ...previewDiffLineNumbers.map((numbers) => numbers.newLine ?? 0),
+          startLineNum
+        )
+      ).length;
       const previewContentLines = props.diff ? diffStates.map((state) => state.content) : codeLines;
       const highlightedLines = await this.highlightCodeLines(
         previewContentLines.join("\n"),
@@ -813,28 +891,42 @@ export class CodePlugin extends DecorationPlugin {
       // Process each line
       codeLines.forEach((line, index) => {
         const lineNum = previewLineNumbers[index] ?? startLineNum + index;
-        const highlightLineNumber = props.diff ? (previewHighlightLineNumbers[index] ?? index + 1) : index + 1;
+        const highlightLineNumber = props.diff
+          ? (previewHighlightLineNumbers[index] ?? startLineNum + index)
+          : startLineNum + index;
         const isHighlighted = props.highlightLines?.includes(highlightLineNumber);
         const diffState = props.diff ? diffStates[index] : undefined;
+        const diffLineNumbers = props.diff ? previewDiffLineNumbers[index] : undefined;
 
         // Line classes
         const lineClasses: string[] = ["cm-draftly-code-line"];
         if (isHighlighted) lineClasses.push("cm-draftly-code-line-highlight");
-        if (props.showLineNumbers) lineClasses.push("cm-draftly-code-line-numbered");
+        if (props.showLineNumbers) {
+          lineClasses.push(props.diff ? "cm-draftly-code-line-numbered-diff" : "cm-draftly-code-line-numbered");
+        }
         if (diffState?.kind === "addition") lineClasses.push("cm-draftly-code-line-diff-add");
         if (diffState?.kind === "deletion") lineClasses.push("cm-draftly-code-line-diff-del");
 
         // Line attributes
         const lineAttrs: string[] = [`class="${lineClasses.join(" ")}"`];
-        if (props.showLineNumbers) {
+        if (props.showLineNumbers && !props.diff) {
           lineAttrs.push(`data-line-num="${lineNum}"`);
           lineAttrs.push(`style="--line-num-width: ${lineNumWidth}ch"`);
         }
         if (props.diff) {
-          const diffMarker = diffState?.kind === "addition" ? "+" : diffState?.kind === "deletion" ? "-" : "";
-          lineAttrs.push(`data-diff-marker="${diffMarker}"`);
-          lineClasses.push("cm-draftly-code-line-diff-gutter");
-          lineAttrs[0] = `class="${lineClasses.join(" ")}"`;
+          const diffMarker = diffState?.kind === "addition" ? "+" : diffState?.kind === "deletion" ? "-" : " ";
+          if (props.showLineNumbers) {
+            lineAttrs.push(`data-line-num-old="${diffLineNumbers?.oldLine != null ? diffLineNumbers.oldLine : ""}"`);
+            lineAttrs.push(`data-line-num-new="${diffLineNumbers?.newLine != null ? diffLineNumbers.newLine : ""}"`);
+            lineAttrs.push(`data-diff-marker="${diffMarker}"`);
+            lineAttrs.push(
+              `style="--line-num-old-width: ${previewOldLineNumWidth}ch; --line-num-new-width: ${previewNewLineNumWidth}ch"`
+            );
+          } else {
+            lineAttrs.push(`data-diff-marker="${diffMarker}"`);
+            lineClasses.push("cm-draftly-code-line-diff-gutter");
+            lineAttrs[0] = `class="${lineClasses.join(" ")}"`;
+          }
         }
 
         // Highlight text content
@@ -1053,59 +1145,27 @@ export class CodePlugin extends DecorationPlugin {
     return states;
   }
 
-  private computeDiffDisplayLineNumbers(states: DiffLineState[], startLineNum: number): number[] {
-    const numbers = new Array(states.length).fill(startLineNum);
-    let currentLineNumber = startLineNum;
-    let index = 0;
+  private computeDiffDisplayLineNumbers(states: DiffLineState[], startLineNum: number): DiffDisplayLineNumbers[] {
+    const numbers: DiffDisplayLineNumbers[] = [];
+    let oldLineNumber = startLineNum;
+    let newLineNumber = startLineNum;
 
-    while (index < states.length) {
-      const state = states[index];
-
-      if (!state) {
-        numbers[index] = currentLineNumber;
-        currentLineNumber++;
-        index++;
+    for (const state of states) {
+      if (state.kind === "deletion") {
+        numbers.push({ oldLine: oldLineNumber, newLine: null });
+        oldLineNumber++;
         continue;
       }
 
-      if (state.kind !== "deletion") {
-        numbers[index] = currentLineNumber;
-        currentLineNumber++;
-        index++;
+      if (state.kind === "addition") {
+        numbers.push({ oldLine: null, newLine: newLineNumber });
+        newLineNumber++;
         continue;
       }
 
-      const deletionStart = index;
-      while (index < states.length && states[index]?.kind === "deletion") {
-        index++;
-      }
-      const deletionEnd = index;
-
-      const additionStart = index;
-      while (index < states.length && states[index]?.kind === "addition") {
-        index++;
-      }
-      const additionEnd = index;
-
-      const deletionCount = deletionEnd - deletionStart;
-      const additionCount = additionEnd - additionStart;
-      const pairCount = Math.min(deletionCount, additionCount);
-
-      for (let pairIndex = 0; pairIndex < pairCount; pairIndex++) {
-        numbers[deletionStart + pairIndex] = currentLineNumber;
-        numbers[additionStart + pairIndex] = currentLineNumber;
-        currentLineNumber++;
-      }
-
-      for (let extraDeletionIndex = pairCount; extraDeletionIndex < deletionCount; extraDeletionIndex++) {
-        numbers[deletionStart + extraDeletionIndex] = currentLineNumber;
-        currentLineNumber++;
-      }
-
-      for (let extraAdditionIndex = pairCount; extraAdditionIndex < additionCount; extraAdditionIndex++) {
-        numbers[additionStart + extraAdditionIndex] = currentLineNumber;
-        currentLineNumber++;
-      }
+      numbers.push({ oldLine: oldLineNumber, newLine: newLineNumber });
+      oldLineNumber++;
+      newLineNumber++;
     }
 
     return numbers;
