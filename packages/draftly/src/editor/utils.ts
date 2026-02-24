@@ -59,6 +59,10 @@ export function createTheme({
   light?: ThemeStyle;
 }): (theme: ThemeEnum) => ThemeStyle {
   return (theme: ThemeEnum) => {
+    defaultTheme = flattenThemeStyles(defaultTheme);
+    darkTheme = flattenThemeStyles(darkTheme || {});
+    lightTheme = flattenThemeStyles(lightTheme || {});
+
     let style: ThemeStyle = defaultTheme;
 
     if (theme === ThemeEnum.DARK) {
@@ -71,6 +75,33 @@ export function createTheme({
 
     return style;
   };
+}
+
+export function flattenThemeStyles(themeStyles: ThemeStyle, parentSelector?: string): ThemeStyle {
+  const flattened: ThemeStyle = {};
+
+  for (const [selector, styles] of Object.entries(themeStyles)) {
+    if (typeof styles === "object" && !Array.isArray(styles)) {
+      // Flatten nested styles
+      const fullSelector = fixSelector(parentSelector ? `${parentSelector} ${selector}` : selector);
+      const nestedStyles = flattenThemeStyles(styles as ThemeStyle, fullSelector);
+      Object.assign(flattened, nestedStyles);
+    } else {
+      // Add styles to the flattened object
+      if (parentSelector) {
+        flattened[parentSelector] = { ...flattened[parentSelector], [selector]: styles };
+      } else {
+        flattened[selector] = styles as StyleSpec;
+      }
+    }
+  }
+
+  return flattened;
+}
+
+export function fixSelector(selector: string): string {
+  // Replace all occurrences of "&" with the parent selector
+  return selector.replace(/\s&/g, "");
 }
 
 /**
