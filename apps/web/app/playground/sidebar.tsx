@@ -99,7 +99,7 @@ export default function Sidebar({
                 <div
                   onClick={() => setCurrentContent(index)}
                   className={cn(
-                    "w-full px-3 py-2 flex items-center gap-2 text-left text-sm transition-colors hover:bg-accent cursor-pointer",
+                    "w-full px-3 py-2 flex items-center gap-2 text-left text-sm transition-colors hover:bg-accent hover:transition-none cursor-pointer",
                     currentContent === index && "bg-accent"
                   )}
                   aria-selected={currentContent === index}
