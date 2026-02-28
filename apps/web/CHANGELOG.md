@@ -1,5 +1,12 @@
 # web
 
+## 0.0.9
+
+### Patch Changes
+
+- Updated dependencies [31791b8]
+  - draftly@2.0.0
+
 ## 0.0.2
 
 ### Patch Changes
