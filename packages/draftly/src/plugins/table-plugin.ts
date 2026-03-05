@@ -33,6 +33,15 @@ type TableCellPosition = {
   end: number;
 };
 
+type EffectiveTableInfo = {
+  from: number;
+  to: number;
+  startLineNumber: number;
+  endLineNumber: number;
+  delimiterLineNumber: number;
+  alignments: Alignment[];
+};
+
 // ============================================================================
 // Utilities
 // ============================================================================
@@ -62,6 +71,39 @@ function stripOuterPipes(lineText: string): string {
 
 function splitTableLine(lineText: string): string[] {
   return stripOuterPipes(lineText).split("|");
+}
+
+function isTableRowLine(lineText: string): boolean {
+  const trimmed = lineText.trim();
+  if (!trimmed.startsWith("|") || !trimmed.endsWith("|")) return false;
+  return getPipePositions(trimmed).length >= 2;
+}
+
+function splitTableAndTrailingMarkdown(markdown: string): { tableMarkdown: string; trailingMarkdown: string } {
+  const lines = markdown.split("\n");
+  if (lines.length < 2) return { tableMarkdown: markdown, trailingMarkdown: "" };
+
+  const headerLine = lines[0] || "";
+  const delimiterLine = lines[1] || "";
+  if (!isTableRowLine(headerLine) || !isTableRowLine(delimiterLine)) {
+    return { tableMarkdown: markdown, trailingMarkdown: "" };
+  }
+
+  const delimiterCells = splitTableLine(delimiterLine).map((cell) => cell.trim());
+  if (!delimiterCells.every((c) => /^:?-+:?$/.test(c))) {
+    return { tableMarkdown: markdown, trailingMarkdown: "" };
+  }
+
+  let endIndex = 1;
+  for (let i = 2; i < lines.length; i++) {
+    if (!isTableRowLine(lines[i] || "")) break;
+    endIndex = i;
+  }
+
+  return {
+    tableMarkdown: lines.slice(0, endIndex + 1).join("\n"),
+    trailingMarkdown: lines.slice(endIndex + 1).join("\n"),
+  };
 }
 
 function parseDelimiterAlignments(lineText: string): Alignment[] | null {
@@ -117,19 +159,26 @@ function getPipeHideRanges(lineText: string): Array<{ from: number; to: number }
  * Parse a full markdown table string into structured data (for preview).
  */
 function parseTableMarkdown(markdown: string): ParsedTable | null {
-  const lines = markdown.split("\n").filter((lineText) => lineText.trim().length > 0);
+  const { tableMarkdown } = splitTableAndTrailingMarkdown(markdown);
+  const lines = tableMarkdown.split("\n");
   if (lines.length < 2) return null;
+
+  const headerLine = lines[0] || "";
+  const delimiterLine = lines[1] || "";
+  if (!isTableRowLine(headerLine) || !isTableRowLine(delimiterLine)) return null;
 
   const parseCells = (lineText: string): string[] => splitTableLine(lineText).map((cell) => cell.trim());
 
-  const headers = parseCells(lines[0]!);
-  const delimiterCells = parseCells(lines[1]!);
+  const headers = parseCells(headerLine);
+  const delimiterCells = parseCells(delimiterLine);
   if (!delimiterCells.every((c) => /^:?-+:?$/.test(c.trim()))) return null;
 
   const alignments = delimiterCells.map(parseAlignment);
   const rows: string[][] = [];
   for (let i = 2; i < lines.length; i++) {
-    rows.push(parseCells(lines[i]!));
+    const row = lines[i] || "";
+    if (!isTableRowLine(row)) break;
+    rows.push(parseCells(row));
   }
 
   return { headers, alignments, rows };
@@ -311,9 +360,9 @@ export class TablePlugin extends DecorationPlugin {
     tree.iterate({
       enter: (node) => {
         if (node.name === "Table") {
-          // Keep wrapper strictly on table content to avoid capturing trailing empty lines.
-          const wrapTo = node.to;
-          wrappers.push(tableBlockWrapper.range(node.from, wrapTo));
+          const table = this.getEffectiveTableInfo(view, node.from, node.to);
+          if (!table) return;
+          wrappers.push(tableBlockWrapper.range(table.from, table.to));
         }
       },
     });
@@ -370,26 +419,17 @@ export class TablePlugin extends DecorationPlugin {
       enter: (node) => {
         if (node.name !== "Table") return;
 
-        const { from, to } = node;
-        const startLine = view.state.doc.lineAt(from);
-        const endLine = view.state.doc.lineAt(to);
+        const table = this.getEffectiveTableInfo(view, node.from, node.to);
+        if (!table) return;
 
-        // The delimiter is the second line in a valid markdown table.
-        const delimiterLineNum = startLine.number + 1;
-        if (delimiterLineNum > endLine.number) return;
-
-        const delimiterLine = view.state.doc.line(delimiterLineNum);
-        const alignments = parseDelimiterAlignments(delimiterLine.text);
-        if (!alignments) return;
-
-        for (let i = startLine.number; i <= endLine.number; i++) {
+        for (let i = table.startLineNumber; i <= table.endLineNumber; i++) {
           const line = view.state.doc.line(i);
           const lineText = line.text;
           const pipes = getPipePositions(lineText);
 
-          const isHeader = i === startLine.number;
-          const isDelimiter = i === delimiterLineNum;
-          const bodyRowIndex = i - delimiterLineNum - 1;
+          const isHeader = i === table.startLineNumber;
+          const isDelimiter = i === table.delimiterLineNumber;
+          const bodyRowIndex = i - table.delimiterLineNumber - 1;
 
           if (isHeader) {
             decorations.push(lineDecorations.headerRow.range(line.from));
@@ -401,7 +441,7 @@ export class TablePlugin extends DecorationPlugin {
             decorations.push(lineDecorations.bodyRow.range(line.from));
           }
 
-          if (!isHeader && !isDelimiter && i === endLine.number) {
+          if (!isHeader && !isDelimiter && i === table.endLineNumber) {
             decorations.push(lineDecorations.bodyRowLast.range(line.from));
           }
 
@@ -424,7 +464,7 @@ export class TablePlugin extends DecorationPlugin {
               const cellStart = line.from + pipes[p]! + 1;
               const cellEnd = line.from + pipes[p + 1]!;
               const colIndex = p;
-              const alignment = alignments[colIndex] || "left";
+              const alignment = table.alignments[colIndex] || "left";
               const isLastCell = p === pipes.length - 2;
 
               if (cellStart < cellEnd) {
@@ -669,12 +709,44 @@ export class TablePlugin extends DecorationPlugin {
     let result: { from: number; to: number } | null = null;
     tree.iterate({
       enter: (node) => {
-        if (node.name === "Table" && cursor >= node.from && cursor <= node.to) {
-          result = { from: node.from, to: node.to };
-        }
+        if (node.name !== "Table") return;
+        const table = this.getEffectiveTableInfo(view, node.from, node.to);
+        if (!table) return;
+        if (cursor >= table.from && cursor <= table.to) result = { from: table.from, to: table.to };
       },
     });
     return result;
+  }
+
+  private getEffectiveTableInfo(view: EditorView, nodeFrom: number, nodeTo: number): EffectiveTableInfo | null {
+    const startLine = view.state.doc.lineAt(nodeFrom);
+    const endLine = view.state.doc.lineAt(nodeTo);
+
+    if (!isTableRowLine(startLine.text)) return null;
+
+    const delimiterLineNumber = startLine.number + 1;
+    if (delimiterLineNumber > endLine.number) return null;
+
+    const delimiterLine = view.state.doc.line(delimiterLineNumber);
+    const alignments = parseDelimiterAlignments(delimiterLine.text);
+    if (!alignments) return null;
+
+    let effectiveEndLineNumber = delimiterLineNumber;
+    for (let lineNumber = delimiterLineNumber + 1; lineNumber <= endLine.number; lineNumber++) {
+      const line = view.state.doc.line(lineNumber);
+      if (!isTableRowLine(line.text)) break;
+      effectiveEndLineNumber = lineNumber;
+    }
+
+    const effectiveEndLine = view.state.doc.line(effectiveEndLineNumber);
+    return {
+      from: startLine.from,
+      to: effectiveEndLine.to,
+      startLineNumber: startLine.number,
+      endLineNumber: effectiveEndLineNumber,
+      delimiterLineNumber,
+      alignments,
+    };
   }
 
   /** Splits a raw table line into raw cell segments (without outer pipes). */
@@ -689,9 +761,22 @@ export class TablePlugin extends DecorationPlugin {
   override async renderToHTML(node: SyntaxNode, _children: string, _ctx: PreviewContextLike): Promise<string | null> {
     if (node.name === "Table") {
       const content = _ctx.sliceDoc(node.from, node.to);
-      const parsed = parseTableMarkdown(content);
+      const { tableMarkdown, trailingMarkdown } = splitTableAndTrailingMarkdown(content);
+      const parsed = parseTableMarkdown(tableMarkdown);
       if (!parsed) return null;
-      return await renderTableToHtml(parsed, this.draftlyConfig);
+
+      const tableHtml = await renderTableToHtml(parsed, this.draftlyConfig);
+      if (!trailingMarkdown.trim()) return tableHtml;
+
+      const trailingRenderer = new PreviewRenderer(
+        trailingMarkdown,
+        this.draftlyConfig?.plugins || [],
+        this.draftlyConfig?.markdown || [],
+        this.draftlyConfig?.theme || ThemeEnum.AUTO,
+        true
+      );
+      const trailingHtml = await trailingRenderer.render();
+      return tableHtml + trailingHtml;
     }
 
     // Table sub-nodes are rendered by the parent table node.
@@ -763,7 +848,7 @@ const theme = createTheme({
 
           "&.cm-draftly-table-th": {
             fontWeight: "600",
-            borderBottom: "2px solid var(--color-border, #e2e8f0)",
+            borderBottom: "3px solid var(--color-border, #e2e8f0)",
           },
 
           "&.cm-draftly-table-cell-center": {
