@@ -1,5 +1,5 @@
 import { Decoration, EditorView, KeyBinding, BlockWrapper } from "@codemirror/view";
-import { Extension, Range, RangeSet } from "@codemirror/state";
+import { EditorState, Extension, Range, RangeSet } from "@codemirror/state";
 import { syntaxTree } from "@codemirror/language";
 import { DecorationContext, DecorationPlugin, PluginContext } from "../editor/plugin";
 import { createTheme } from "../editor";
@@ -41,6 +41,15 @@ type EffectiveTableInfo = {
   delimiterLineNumber: number;
   alignments: Alignment[];
 };
+
+const DELIMITER_CELL_PATTERN = /^\s*:?-+:?\s*$/;
+const TABLE_SUB_NODE_NAMES = new Set(["TableHeader", "TableDelimiter", "TableRow", "TableCell"]);
+
+const TABLE_TEMPLATE_LINES = [
+  "| Header 1 | Header 2 | Header 3 |",
+  "| -------- | -------- | -------- |",
+  "|          |          |          |",
+];
 
 // ============================================================================
 // Utilities
@@ -90,7 +99,7 @@ function splitTableAndTrailingMarkdown(markdown: string): { tableMarkdown: strin
   }
 
   const delimiterCells = splitTableLine(delimiterLine).map((cell) => cell.trim());
-  if (!delimiterCells.every((c) => /^:?-+:?$/.test(c))) {
+  if (!delimiterCells.every((c) => DELIMITER_CELL_PATTERN.test(c))) {
     return { tableMarkdown: markdown, trailingMarkdown: "" };
   }
 
@@ -108,7 +117,7 @@ function splitTableAndTrailingMarkdown(markdown: string): { tableMarkdown: strin
 
 function parseDelimiterAlignments(lineText: string): Alignment[] | null {
   const cells = splitTableLine(lineText);
-  if (!cells.every((c) => /^\s*:?-+:?\s*$/.test(c))) return null;
+  if (!cells.every((c) => DELIMITER_CELL_PATTERN.test(c))) return null;
   return cells.map(parseAlignment);
 }
 
@@ -171,7 +180,7 @@ function parseTableMarkdown(markdown: string): ParsedTable | null {
 
   const headers = parseCells(headerLine);
   const delimiterCells = parseCells(delimiterLine);
-  if (!delimiterCells.every((c) => /^:?-+:?$/.test(c.trim()))) return null;
+  if (!delimiterCells.every((c) => DELIMITER_CELL_PATTERN.test(c))) return null;
 
   const alignments = delimiterCells.map(parseAlignment);
   const rows: string[][] = [];
@@ -191,18 +200,26 @@ function isRowEmpty(rowText: string): boolean {
   return splitTableLine(rowText).every((cell) => cell.trim() === "");
 }
 
-/**
- * Render a single cell through `PreviewRenderer` (for preview HTML).
- */
-async function renderCellWithPreviewRenderer(text: string, config?: DraftlyConfig): Promise<string> {
-  if (!text.trim()) return "&nbsp;";
-  const renderer = new PreviewRenderer(
-    text,
+function buildEmptyDataRow(columnCount: number): string {
+  return "| " + Array.from({ length: columnCount }, () => "  ").join(" | ") + " |";
+}
+
+function createPreviewRenderer(markdown: string, config?: DraftlyConfig): PreviewRenderer {
+  return new PreviewRenderer(
+    markdown,
     config?.plugins || [],
     config?.markdown || [],
     config?.theme || ThemeEnum.AUTO,
     true
   );
+}
+
+/**
+ * Render a single cell through `PreviewRenderer` (for preview HTML).
+ */
+async function renderCellWithPreviewRenderer(text: string, config?: DraftlyConfig): Promise<string> {
+  if (!text.trim()) return "&nbsp;";
+  const renderer = createPreviewRenderer(text, config);
   const html = await renderer.render();
   const m = html.match(/^\s*<p>([\s\S]*)<\/p>\s*$/i);
   if (m && m[1] !== undefined) return m[1];
@@ -422,59 +439,79 @@ export class TablePlugin extends DecorationPlugin {
         const table = this.getEffectiveTableInfo(view, node.from, node.to);
         if (!table) return;
 
-        for (let i = table.startLineNumber; i <= table.endLineNumber; i++) {
-          const line = view.state.doc.line(i);
-          const lineText = line.text;
-          const pipes = getPipePositions(lineText);
-
-          const isHeader = i === table.startLineNumber;
-          const isDelimiter = i === table.delimiterLineNumber;
-          const bodyRowIndex = i - table.delimiterLineNumber - 1;
-
-          if (isHeader) {
-            decorations.push(lineDecorations.headerRow.range(line.from));
-          } else if (isDelimiter) {
-            decorations.push(lineDecorations.delimiterRow.range(line.from));
-          } else if (bodyRowIndex % 2 === 1) {
-            decorations.push(lineDecorations.bodyRowEven.range(line.from));
-          } else {
-            decorations.push(lineDecorations.bodyRow.range(line.from));
-          }
-
-          if (!isHeader && !isDelimiter && i === table.endLineNumber) {
-            decorations.push(lineDecorations.bodyRowLast.range(line.from));
-          }
-
-          if (isDelimiter) {
-            if (line.from < line.to) {
-              decorations.push(pipeReplace.range(line.from, line.to));
-            }
-            continue;
-          }
-
-          if (pipes.length < 2) continue;
-
-          const pipeHideRanges = getPipeHideRanges(lineText);
-          for (const range of pipeHideRanges) {
-            decorations.push(pipeReplace.range(line.from + range.from, line.from + range.to));
-          }
-
-          for (let p = 0; p < pipes.length - 1; p++) {
-            if (p < pipes.length - 1) {
-              const cellStart = line.from + pipes[p]! + 1;
-              const cellEnd = line.from + pipes[p + 1]!;
-              const colIndex = p;
-              const alignment = table.alignments[colIndex] || "left";
-              const isLastCell = p === pipes.length - 2;
-
-              if (cellStart < cellEnd) {
-                decorations.push(getCellDeco(isHeader, alignment, isLastCell).range(cellStart, cellEnd));
-              }
-            }
-          }
-        }
+        this.decorateTable(view, decorations, table);
       },
     });
+  }
+
+  /** Applies visual row and cell decorations for a table block. */
+  private decorateTable(view: EditorView, decorations: Range<Decoration>[], table: EffectiveTableInfo): void {
+    for (let lineNumber = table.startLineNumber; lineNumber <= table.endLineNumber; lineNumber++) {
+      const line = view.state.doc.line(lineNumber);
+      const isHeader = lineNumber === table.startLineNumber;
+      const isDelimiter = lineNumber === table.delimiterLineNumber;
+      const isLastBodyRow = !isHeader && !isDelimiter && lineNumber === table.endLineNumber;
+      const bodyRowIndex = lineNumber - table.delimiterLineNumber - 1;
+
+      this.decorateLineRole(decorations, line.from, isHeader, isDelimiter, bodyRowIndex, isLastBodyRow);
+
+      if (isDelimiter) {
+        if (line.from < line.to) decorations.push(pipeReplace.range(line.from, line.to));
+        continue;
+      }
+
+      this.decorateLineCells(decorations, line.from, line.text, table.alignments, isHeader);
+    }
+  }
+
+  /** Adds row-level classes (header/body/even/last) for one table line. */
+  private decorateLineRole(
+    decorations: Range<Decoration>[],
+    lineFrom: number,
+    isHeader: boolean,
+    isDelimiter: boolean,
+    bodyRowIndex: number,
+    isLastBodyRow: boolean
+  ): void {
+    if (isHeader) {
+      decorations.push(lineDecorations.headerRow.range(lineFrom));
+    } else if (isDelimiter) {
+      decorations.push(lineDecorations.delimiterRow.range(lineFrom));
+    } else if (bodyRowIndex % 2 === 1) {
+      decorations.push(lineDecorations.bodyRowEven.range(lineFrom));
+    } else {
+      decorations.push(lineDecorations.bodyRow.range(lineFrom));
+    }
+
+    if (isLastBodyRow) {
+      decorations.push(lineDecorations.bodyRowLast.range(lineFrom));
+    }
+  }
+
+  /** Adds pipe-hiding and cell mark decorations for one non-delimiter line. */
+  private decorateLineCells(
+    decorations: Range<Decoration>[],
+    lineFrom: number,
+    lineText: string,
+    alignments: Alignment[],
+    isHeader: boolean
+  ): void {
+    const pipes = getPipePositions(lineText);
+    if (pipes.length < 2) return;
+
+    for (const range of getPipeHideRanges(lineText)) {
+      decorations.push(pipeReplace.range(lineFrom + range.from, lineFrom + range.to));
+    }
+
+    for (let cellIndex = 0; cellIndex < pipes.length - 1; cellIndex++) {
+      const cellStart = lineFrom + pipes[cellIndex]! + 1;
+      const cellEnd = lineFrom + pipes[cellIndex + 1]!;
+      if (cellStart >= cellEnd) continue;
+
+      const alignment = alignments[cellIndex] || "left";
+      const isLastCell = cellIndex === pipes.length - 2;
+      decorations.push(getCellDeco(isHeader, alignment, isLastCell).range(cellStart, cellEnd));
+    }
   }
 
   // ============================================
@@ -489,11 +526,7 @@ export class TablePlugin extends DecorationPlugin {
 
     const insertPos = line.text.trim() ? line.to : line.from;
 
-    const template = [
-      "| Header 1 | Header 2 | Header 3 |",
-      "| -------- | -------- | -------- |",
-      "|          |          |          |",
-    ].join("\n");
+    const template = TABLE_TEMPLATE_LINES.join("\n");
 
     const prefix = line.text.trim() ? "\n" : "";
     const suffix = "\n";
@@ -515,11 +548,10 @@ export class TablePlugin extends DecorationPlugin {
     const cursor = state.selection.main.head;
     const currentLine = state.doc.lineAt(cursor);
 
-    const parsed = parseTableMarkdown(state.sliceDoc(tableInfo.from, tableInfo.to));
-    if (!parsed) return false;
+    const columnCount = this.getColumnCount(state, tableInfo);
+    if (!columnCount) return false;
 
-    const colCount = parsed.headers.length;
-    const emptyRow = "| " + Array.from({ length: colCount }, () => "  ").join(" | ") + " |";
+    const emptyRow = buildEmptyDataRow(columnCount);
 
     view.dispatch({
       changes: { from: currentLine.to, insert: "\n" + emptyRow },
@@ -540,17 +572,13 @@ export class TablePlugin extends DecorationPlugin {
     const lineText = currentLine.text;
     const cursorInLine = cursor - currentLine.from;
 
-    let colIndex = -1;
-    for (let i = 0; i < cursorInLine; i++) {
-      if (lineText[i] === "|") colIndex++;
-    }
-    colIndex = Math.max(0, colIndex);
+    const colIndex = Math.max(0, getPipePositions(lineText.slice(0, cursorInLine)).length - 1);
 
     const tableText = state.sliceDoc(tableInfo.from, tableInfo.to);
     const lines = tableText.split("\n");
 
     const newLines = lines.map((line, lineIdx) => {
-      const cells = this.splitLineToCells(line);
+      const cells = splitTableLine(line);
       const insertAfter = Math.min(colIndex, cells.length - 1);
 
       if (lineIdx === 1) {
@@ -589,10 +617,7 @@ export class TablePlugin extends DecorationPlugin {
 
     const lineText = cursorLine.text;
     const cursorOffset = cursor - cursorLine.from;
-    const pipes: number[] = [];
-    for (let i = 0; i < lineText.length; i++) {
-      if (lineText[i] === "|") pipes.push(i);
-    }
+    const pipes = getPipePositions(lineText);
 
     if (pipes.length < 2) return false;
     const lastCellStart = pipes[pipes.length - 2]!;
@@ -612,11 +637,10 @@ export class TablePlugin extends DecorationPlugin {
     }
 
     // Non-empty last row → add new row
-    const parsed = parseTableMarkdown(state.sliceDoc(tableInfo.from, tableInfo.to));
-    if (!parsed) return false;
+    const columnCount = this.getColumnCount(state, tableInfo);
+    if (!columnCount) return false;
 
-    const colCount = parsed.headers.length;
-    const emptyRow = "| " + Array.from({ length: colCount }, () => "  ").join(" | ") + " |";
+    const emptyRow = buildEmptyDataRow(columnCount);
 
     view.dispatch({
       changes: { from: cursorLine.to, insert: "\n" + emptyRow },
@@ -634,35 +658,8 @@ export class TablePlugin extends DecorationPlugin {
     const { state } = view;
     const cursor = state.selection.main.head;
     const tableText = state.sliceDoc(tableInfo.from, tableInfo.to);
-    const lines = tableText.split("\n");
+    const cellPositions = this.collectCellPositions(tableText, tableInfo.from);
 
-    // Collect absolute cell positions, skipping the delimiter row.
-    const cellPositions: TableCellPosition[] = [];
-    let lineFrom = tableInfo.from;
-    for (let li = 0; li < lines.length; li++) {
-      if (li === 1) {
-        lineFrom += lines[li]!.length + 1;
-        continue;
-      }
-      const line = lines[li]!;
-
-      const pipes: number[] = [];
-      for (let i = 0; i < line.length; i++) {
-        if (line[i] === "|") pipes.push(i);
-      }
-
-      for (let p = 0; p < pipes.length - 1; p++) {
-        cellPositions.push({
-          lineFrom,
-          start: pipes[p]! + 1,
-          end: pipes[p + 1]!,
-        });
-      }
-
-      lineFrom += line.length + 1;
-    }
-
-    // Find the current cell.
     let currentCellIdx = -1;
     for (let i = 0; i < cellPositions.length; i++) {
       const cell = cellPositions[i]!;
@@ -701,6 +698,38 @@ export class TablePlugin extends DecorationPlugin {
   // Helpers
   // ============================================
 
+  /** Returns header column count for a table range, or `0` when parsing fails. */
+  private getColumnCount(state: EditorState, tableInfo: { from: number; to: number }): number {
+    const parsed = parseTableMarkdown(state.sliceDoc(tableInfo.from, tableInfo.to));
+    return parsed?.headers.length || 0;
+  }
+
+  /** Collects all selectable table cell offsets, skipping the delimiter row. */
+  private collectCellPositions(tableText: string, tableFrom: number): TableCellPosition[] {
+    const lines = tableText.split("\n");
+    const cellPositions: TableCellPosition[] = [];
+
+    let lineFrom = tableFrom;
+    for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
+      const line = lines[lineIndex]!;
+
+      if (lineIndex !== 1) {
+        const pipes = getPipePositions(line);
+        for (let cellIndex = 0; cellIndex < pipes.length - 1; cellIndex++) {
+          cellPositions.push({
+            lineFrom,
+            start: pipes[cellIndex]! + 1,
+            end: pipes[cellIndex + 1]!,
+          });
+        }
+      }
+
+      lineFrom += line.length + 1;
+    }
+
+    return cellPositions;
+  }
+
   /** Finds the table syntax node containing the current cursor. */
   private getTableAtCursor(view: EditorView): { from: number; to: number } | null {
     const tree = syntaxTree(view.state);
@@ -718,6 +747,12 @@ export class TablePlugin extends DecorationPlugin {
     return result;
   }
 
+  /**
+   * Computes the effective editable/renderable table bounds for a syntax node.
+   *
+   * The markdown parser can include trailing non-table content under the same
+   * parent region, so this method clamps to contiguous valid table rows.
+   */
   private getEffectiveTableInfo(view: EditorView, nodeFrom: number, nodeTo: number): EffectiveTableInfo | null {
     const startLine = view.state.doc.lineAt(nodeFrom);
     const endLine = view.state.doc.lineAt(nodeTo);
@@ -749,18 +784,14 @@ export class TablePlugin extends DecorationPlugin {
     };
   }
 
-  /** Splits a raw table line into raw cell segments (without outer pipes). */
-  private splitLineToCells(line: string): string[] {
-    return splitTableLine(line);
-  }
-
   // ============================================
   // Preview Rendering
   // ============================================
 
-  override async renderToHTML(node: SyntaxNode, _children: string, _ctx: PreviewContextLike): Promise<string | null> {
+  /** Renders the full table node to HTML for markdown preview. */
+  override async renderToHTML(node: SyntaxNode, _unusedChildren: string, ctx: PreviewContextLike): Promise<string | null> {
     if (node.name === "Table") {
-      const content = _ctx.sliceDoc(node.from, node.to);
+      const content = ctx.sliceDoc(node.from, node.to);
       const { tableMarkdown, trailingMarkdown } = splitTableAndTrailingMarkdown(content);
       const parsed = parseTableMarkdown(tableMarkdown);
       if (!parsed) return null;
@@ -768,24 +799,13 @@ export class TablePlugin extends DecorationPlugin {
       const tableHtml = await renderTableToHtml(parsed, this.draftlyConfig);
       if (!trailingMarkdown.trim()) return tableHtml;
 
-      const trailingRenderer = new PreviewRenderer(
-        trailingMarkdown,
-        this.draftlyConfig?.plugins || [],
-        this.draftlyConfig?.markdown || [],
-        this.draftlyConfig?.theme || ThemeEnum.AUTO,
-        true
-      );
+      const trailingRenderer = createPreviewRenderer(trailingMarkdown, this.draftlyConfig);
       const trailingHtml = await trailingRenderer.render();
       return tableHtml + trailingHtml;
     }
 
     // Table sub-nodes are rendered by the parent table node.
-    if (
-      node.name === "TableHeader" ||
-      node.name === "TableDelimiter" ||
-      node.name === "TableRow" ||
-      node.name === "TableCell"
-    ) {
+    if (TABLE_SUB_NODE_NAMES.has(node.name)) {
       return "";
     }
 
