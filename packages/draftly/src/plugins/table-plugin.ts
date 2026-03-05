@@ -1,10 +1,12 @@
-import { Decoration, EditorView, KeyBinding, WidgetType } from "@codemirror/view";
+import { Decoration, EditorView, KeyBinding, BlockWrapper } from "@codemirror/view";
+import { Extension, Range, RangeSet } from "@codemirror/state";
 import { syntaxTree } from "@codemirror/language";
 import { DecorationContext, DecorationPlugin, PluginContext } from "../editor/plugin";
-import { createTheme, ThemeEnum } from "../editor";
+import { createTheme } from "../editor";
 import { SyntaxNode } from "@lezer/common";
 import { DraftlyConfig } from "../editor/draftly";
 import { PreviewRenderer } from "../preview/renderer";
+import { ThemeEnum } from "../editor/utils";
 
 // ============================================================================
 // Types
@@ -13,13 +15,10 @@ import { PreviewRenderer } from "../preview/renderer";
 /** Column alignment parsed from the delimiter row */
 type Alignment = "left" | "center" | "right";
 
-/** Parsed table structure */
+/** Parsed table structure for preview rendering */
 interface ParsedTable {
-  /** Header row cells */
   headers: string[];
-  /** Column alignments */
   alignments: Alignment[];
-  /** Data rows, each an array of cell strings */
   rows: string[][];
 }
 
@@ -28,12 +27,18 @@ type PreviewContextLike = {
   sanitize(html: string): string;
 };
 
+type TableCellPosition = {
+  lineFrom: number;
+  start: number;
+  end: number;
+};
+
 // ============================================================================
 // Utilities
 // ============================================================================
 
 /**
- * Parse alignment from a delimiter cell (e.g., `:---:`, `---:`, `:---`, `---`)
+ * Parse alignment from a delimiter cell (e.g. `:---:`, `---:`, `:---`, `---`)
  */
 function parseAlignment(cell: string): Alignment {
   const trimmed = cell.trim();
@@ -45,29 +50,83 @@ function parseAlignment(cell: string): Alignment {
 }
 
 /**
- * Parse a markdown table string into structured data
+ * Parse alignments from the delimiter row text.
+ * Returns `null` when the line is not a valid GFM delimiter.
+ */
+function stripOuterPipes(lineText: string): string {
+  let trimmed = lineText.trim();
+  if (trimmed.startsWith("|")) trimmed = trimmed.slice(1);
+  if (trimmed.endsWith("|")) trimmed = trimmed.slice(0, -1);
+  return trimmed;
+}
+
+function splitTableLine(lineText: string): string[] {
+  return stripOuterPipes(lineText).split("|");
+}
+
+function parseDelimiterAlignments(lineText: string): Alignment[] | null {
+  const cells = splitTableLine(lineText);
+  if (!cells.every((c) => /^\s*:?-+:?\s*$/.test(c))) return null;
+  return cells.map(parseAlignment);
+}
+
+/**
+ * Return the character offsets of every `|` in a line.
+ */
+function getPipePositions(lineText: string): number[] {
+  const positions: number[] = [];
+  for (let i = 0; i < lineText.length; i++) {
+    if (lineText[i] === "|") positions.push(i);
+  }
+  return positions;
+}
+
+/**
+ * Return merged replace ranges that hide each pipe and its adjacent
+ * whitespace padding so visual gaps don't remain between rendered cells.
+ */
+function getPipeHideRanges(lineText: string): Array<{ from: number; to: number }> {
+  const pipes = getPipePositions(lineText);
+  if (!pipes.length) return [];
+
+  const rawRanges = pipes.map((pipePos) => {
+    let from = pipePos;
+    let to = pipePos + 1;
+
+    while (from > 0 && /\s/.test(lineText[from - 1]!)) from--;
+    while (to < lineText.length && /\s/.test(lineText[to]!)) to++;
+
+    return { from, to };
+  });
+
+  rawRanges.sort((a, b) => a.from - b.from);
+  const merged: Array<{ from: number; to: number }> = [];
+  for (const range of rawRanges) {
+    const last = merged[merged.length - 1];
+    if (!last || range.from > last.to) {
+      merged.push({ ...range });
+      continue;
+    }
+    last.to = Math.max(last.to, range.to);
+  }
+
+  return merged;
+}
+
+/**
+ * Parse a full markdown table string into structured data (for preview).
  */
 function parseTableMarkdown(markdown: string): ParsedTable | null {
-  const lines = markdown.split("\n").filter((l) => l.trim().length > 0);
+  const lines = markdown.split("\n").filter((lineText) => lineText.trim().length > 0);
   if (lines.length < 2) return null;
 
-  const parseCells = (line: string): string[] => {
-    // Remove leading/trailing pipes, then split by pipe
-    let trimmed = line.trim();
-    if (trimmed.startsWith("|")) trimmed = trimmed.slice(1);
-    if (trimmed.endsWith("|")) trimmed = trimmed.slice(0, -1);
-    return trimmed.split("|").map((c) => c.trim());
-  };
+  const parseCells = (lineText: string): string[] => splitTableLine(lineText).map((cell) => cell.trim());
 
   const headers = parseCells(lines[0]!);
   const delimiterCells = parseCells(lines[1]!);
-
-  // Validate delimiter row (must contain only -, :, and spaces)
-  const isDelimiter = delimiterCells.every((c) => /^:?-+:?$/.test(c.trim()));
-  if (!isDelimiter) return null;
+  if (!delimiterCells.every((c) => /^:?-+:?$/.test(c.trim()))) return null;
 
   const alignments = delimiterCells.map(parseAlignment);
-
   const rows: string[][] = [];
   for (let i = 2; i < lines.length; i++) {
     rows.push(parseCells(lines[i]!));
@@ -77,22 +136,17 @@ function parseTableMarkdown(markdown: string): ParsedTable | null {
 }
 
 /**
- * Check if a row is completely empty (all cells are empty/whitespace)
+ * Check whether a row is completely empty (all cells whitespace-only).
  */
 function isRowEmpty(rowText: string): boolean {
-  const trimmed = rowText.trim();
-  if (!trimmed.startsWith("|")) return false;
-  let inner = trimmed;
-  if (inner.startsWith("|")) inner = inner.slice(1);
-  if (inner.endsWith("|")) inner = inner.slice(0, -1);
-  return inner.split("|").every((cell) => cell.trim() === "");
+  return splitTableLine(rowText).every((cell) => cell.trim() === "");
 }
 
+/**
+ * Render a single cell through `PreviewRenderer` (for preview HTML).
+ */
 async function renderCellWithPreviewRenderer(text: string, config?: DraftlyConfig): Promise<string> {
-  if (!text.trim()) {
-    return "&nbsp;";
-  }
-
+  if (!text.trim()) return "&nbsp;";
   const renderer = new PreviewRenderer(
     text,
     config?.plugins || [],
@@ -101,197 +155,123 @@ async function renderCellWithPreviewRenderer(text: string, config?: DraftlyConfi
     true
   );
   const html = await renderer.render();
-
-  // If wrapped in a single paragraph, unwrap for table cell display
-  const paragraphMatch = html.match(/^\s*<p>([\s\S]*)<\/p>\s*$/i);
-  if (paragraphMatch && paragraphMatch[1] !== undefined) {
-    return paragraphMatch[1];
-  }
-
+  const m = html.match(/^\s*<p>([\s\S]*)<\/p>\s*$/i);
+  if (m && m[1] !== undefined) return m[1];
   return html;
 }
 
-function getColumnAlignment(alignments: Alignment[], index: number): Alignment {
-  return alignments[index] || "left";
-}
-
-function getColumnCount(headers: string[], row: string[]): number {
-  return Math.max(headers.length, row.length);
-}
-
+/**
+ * Build a full `<table>` HTML string for preview rendering.
+ */
 async function renderTableToHtml(parsed: ParsedTable, config?: DraftlyConfig): Promise<string> {
   const { headers, alignments, rows } = parsed;
   let html = '<div class="cm-draftly-table-widget">';
   html += '<table class="cm-draftly-table">';
 
-  html += "<thead><tr>";
+  html += '<thead><tr class="cm-draftly-table-row cm-draftly-table-header-row">';
   for (let i = 0; i < headers.length; i++) {
     const cell = headers[i] || "";
-    const align = getColumnAlignment(alignments, i);
+    const align = alignments[i] || "left";
     const rendered = await renderCellWithPreviewRenderer(cell, config);
-    html += `<th style="text-align: ${align}">${rendered}</th>`;
+    const isLastHeaderCell = i === headers.length - 1;
+    html += `<th class="cm-draftly-table-cell cm-draftly-table-th${
+      align === "center" ? " cm-draftly-table-cell-center" : align === "right" ? " cm-draftly-table-cell-right" : ""
+    }${isLastHeaderCell ? " cm-draftly-table-cell-last" : ""}">${rendered}</th>`;
   }
   html += "</tr></thead>";
 
   html += "<tbody>";
-  for (const row of rows) {
-    html += "<tr>";
-    const colCount = getColumnCount(headers, row);
+  for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
+    const row = rows[rowIndex]!;
+    html += `<tr class="cm-draftly-table-row cm-draftly-table-body-row${
+      rowIndex % 2 === 1 ? " cm-draftly-table-row-even" : ""
+    }${rowIndex === rows.length - 1 ? " cm-draftly-table-row-last" : ""}">`;
+    const colCount = Math.max(headers.length, row.length);
     for (let i = 0; i < colCount; i++) {
-      const align = getColumnAlignment(alignments, i);
+      const align = alignments[i] || "left";
       const cell = row[i] || "";
       const rendered = await renderCellWithPreviewRenderer(cell, config);
-      html += `<td style="text-align: ${align}">${rendered}</td>`;
+      const isLastBodyCell = i === colCount - 1;
+      html += `<td class="cm-draftly-table-cell${
+        align === "center" ? " cm-draftly-table-cell-center" : align === "right" ? " cm-draftly-table-cell-right" : ""
+      }${isLastBodyCell ? " cm-draftly-table-cell-last" : ""}">${rendered}</td>`;
     }
     html += "</tr>";
   }
-  html += "</tbody>";
-
-  html += "</table></div>";
+  html += "</tbody></table></div>";
   return html;
-}
-
-// ============================================================================
-// Widget
-// ============================================================================
-
-/**
- * Widget to render a markdown table as a styled HTML table.
- * Shows rounded borders, alternate row colors, cell borders, and alignments.
- */
-class TableWidget extends WidgetType {
-  constructor(
-    readonly tableMarkdown: string,
-    readonly from: number,
-    readonly to: number,
-    readonly config?: DraftlyConfig
-  ) {
-    super();
-  }
-
-  override eq(other: TableWidget): boolean {
-    return (
-      other.tableMarkdown === this.tableMarkdown &&
-      other.from === this.from &&
-      other.to === this.to &&
-      other.config === this.config
-    );
-  }
-
-  toDOM(view: EditorView): HTMLElement {
-    const wrapper = document.createElement("div");
-    wrapper.className = "cm-draftly-table-widget";
-
-    const parsed = parseTableMarkdown(this.tableMarkdown);
-    if (!parsed) {
-      wrapper.textContent = "[Invalid table]";
-      return wrapper;
-    }
-
-    const { headers, alignments, rows } = parsed;
-
-    // Build the table
-    const table = document.createElement("table");
-    table.className = "cm-draftly-table";
-
-    // Thead
-    const thead = document.createElement("thead");
-    const headerRow = document.createElement("tr");
-    headers.forEach((h, i) => {
-      const th = document.createElement("th");
-      th.innerHTML = "&nbsp;";
-      this.renderCellAsync(h, th);
-      const align = alignments[i];
-      if (align) th.style.textAlign = align;
-      headerRow.appendChild(th);
-    });
-    thead.appendChild(headerRow);
-    table.appendChild(thead);
-
-    // Tbody
-    const tbody = document.createElement("tbody");
-    rows.forEach((row) => {
-      const tr = document.createElement("tr");
-      // Ensure we render enough cells for the column count
-      const colCount = getColumnCount(headers, row);
-      for (let i = 0; i < colCount; i++) {
-        const td = document.createElement("td");
-        td.innerHTML = "&nbsp;";
-        this.renderCellAsync(row[i] || "", td);
-        const align = getColumnAlignment(alignments, i);
-        if (align) td.style.textAlign = align;
-        tr.appendChild(td);
-      }
-      tbody.appendChild(tr);
-    });
-    table.appendChild(tbody);
-
-    wrapper.appendChild(table);
-
-    // Click handler — set cursor inside table to reveal raw markdown
-    wrapper.addEventListener("click", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      view.dispatch({
-        selection: { anchor: this.from },
-        scrollIntoView: true,
-      });
-      view.focus();
-    });
-
-    return wrapper;
-  }
-
-  /**
-   * Render cell content asynchronously using PreviewRenderer
-   */
-  private async renderCellAsync(text: string, element: HTMLElement) {
-    if (!text.trim()) {
-      element.innerHTML = "&nbsp;";
-      return;
-    }
-
-    try {
-      element.innerHTML = await renderCellWithPreviewRenderer(text, this.config);
-    } catch (error) {
-      console.error("Failed to render table cell:", error);
-      element.textContent = text;
-    }
-  }
-
-  override ignoreEvent(event: Event): boolean {
-    return event.type !== "click";
-  }
 }
 
 // ============================================================================
 // Decorations
 // ============================================================================
 
-const tableMarkDecorations = {
-  "table-line": Decoration.line({ class: "cm-draftly-table-line" }),
-  "table-line-start": Decoration.line({ class: "cm-draftly-table-line-start" }),
-  "table-line-end": Decoration.line({ class: "cm-draftly-table-line-end" }),
-  "table-delimiter": Decoration.line({ class: "cm-draftly-table-delimiter-line" }),
-  "table-rendered": Decoration.line({ class: "cm-draftly-table-rendered" }),
-  // "table-hidden": Decoration.mark({ class: "cm-draftly-table-hidden" }),
-  "table-hidden": Decoration.replace({}),
+/** Replace decoration that hides a range entirely */
+const pipeReplace = Decoration.replace({});
+
+/**
+ * Pre-built mark decorations keyed by `"th"|"td"` + alignment.
+ * Each wraps cell content in a `<span>` with appropriate CSS classes.
+ */
+const cellDecorations = {
+  "th-left": Decoration.mark({ class: "cm-draftly-table-cell cm-draftly-table-th" }),
+  "th-center": Decoration.mark({ class: "cm-draftly-table-cell cm-draftly-table-th cm-draftly-table-cell-center" }),
+  "th-right": Decoration.mark({ class: "cm-draftly-table-cell cm-draftly-table-th cm-draftly-table-cell-right" }),
+  "th-left-last": Decoration.mark({ class: "cm-draftly-table-cell cm-draftly-table-th cm-draftly-table-cell-last" }),
+  "th-center-last": Decoration.mark({
+    class: "cm-draftly-table-cell cm-draftly-table-th cm-draftly-table-cell-center cm-draftly-table-cell-last",
+  }),
+  "th-right-last": Decoration.mark({
+    class: "cm-draftly-table-cell cm-draftly-table-th cm-draftly-table-cell-right cm-draftly-table-cell-last",
+  }),
+  "td-left": Decoration.mark({ class: "cm-draftly-table-cell" }),
+  "td-center": Decoration.mark({ class: "cm-draftly-table-cell cm-draftly-table-cell-center" }),
+  "td-right": Decoration.mark({ class: "cm-draftly-table-cell cm-draftly-table-cell-right" }),
+  "td-left-last": Decoration.mark({ class: "cm-draftly-table-cell cm-draftly-table-cell-last" }),
+  "td-center-last": Decoration.mark({
+    class: "cm-draftly-table-cell cm-draftly-table-cell-center cm-draftly-table-cell-last",
+  }),
+  "td-right-last": Decoration.mark({
+    class: "cm-draftly-table-cell cm-draftly-table-cell-right cm-draftly-table-cell-last",
+  }),
+} as const;
+
+type CellDecoKey = keyof typeof cellDecorations;
+
+function getCellDeco(isHeader: boolean, alignment: Alignment, isLastCell: boolean): Decoration {
+  const key: CellDecoKey = `${isHeader ? "th" : "td"}-${alignment}${isLastCell ? "-last" : ""}`;
+  return cellDecorations[key];
+}
+
+/** Line decorations for the different row types */
+const lineDecorations = {
+  headerRow: Decoration.line({ class: "cm-draftly-table-row cm-draftly-table-header-row" }),
+  delimiterRow: Decoration.line({ class: "cm-draftly-table-row cm-draftly-table-delimiter-row" }),
+  bodyRow: Decoration.line({ class: "cm-draftly-table-row cm-draftly-table-body-row" }),
+  bodyRowEven: Decoration.line({
+    class: "cm-draftly-table-row cm-draftly-table-body-row cm-draftly-table-row-even",
+  }),
+  bodyRowLast: Decoration.line({ class: "cm-draftly-table-row-last" }),
 };
+
+/** Groups all table lines in one wrapper block. */
+const tableBlockWrapper = BlockWrapper.create({
+  tagName: "div",
+  attributes: { class: "cm-draftly-table-wrapper" },
+});
 
 // ============================================================================
 // Plugin
 // ============================================================================
 
 /**
- * TablePlugin — Renders GFM markdown tables as styled widgets.
+ * Renders GFM tables in-editor and in preview with matching styles.
  *
- * Features:
- * - Rendered table widget with rounded borders, alternate row colors, cell borders
- * - Alignment support (`:---:`, `----:`, `:---`)
- * - Monospace raw markdown when cursor is inside the table
- * - Keyboard shortcuts for table creation, adding rows/columns
- * - Enter in last row/last cell: creates row, again removes it
- * - Auto-formats table markdown to align pipes
+ * Supports:
+ * - Column alignment (`:---:`, `---:`, `:---`)
+ * - Cell navigation with Tab / Shift-Tab
+ * - Row/column insertion shortcuts
+ * - Insert starter table with Mod-Shift-T
  */
 export class TablePlugin extends DecorationPlugin {
   readonly name = "table";
@@ -309,6 +289,36 @@ export class TablePlugin extends DecorationPlugin {
 
   override get theme() {
     return theme;
+  }
+
+  // ============================================
+  // Extensions
+  // ============================================
+
+  /** Registers block wrappers so each table renders as one visual block. */
+  override getExtensions(): Extension[] {
+    return [EditorView.blockWrappers.of((view) => this.computeBlockWrappers(view))];
+  }
+
+  /**
+   * Walk the syntax tree and produce a `RangeSet<BlockWrapper>` covering
+   * every Table node in the document.
+   */
+  private computeBlockWrappers(view: EditorView): RangeSet<BlockWrapper> {
+    const wrappers: Range<BlockWrapper>[] = [];
+    const tree = syntaxTree(view.state);
+
+    tree.iterate({
+      enter: (node) => {
+        if (node.name === "Table") {
+          // Keep wrapper strictly on table content to avoid capturing trailing empty lines.
+          const wrapTo = node.to;
+          wrappers.push(tableBlockWrapper.range(node.from, wrapTo));
+        }
+      },
+    });
+
+    return BlockWrapper.set(wrappers, true);
   }
 
   // ============================================
@@ -351,6 +361,7 @@ export class TablePlugin extends DecorationPlugin {
   // Decorations
   // ============================================
 
+  /** Builds row/cell decorations for visual table rendering in the editor. */
   buildDecorations(ctx: DecorationContext): void {
     const { view, decorations } = ctx;
     const tree = syntaxTree(view.state);
@@ -360,50 +371,67 @@ export class TablePlugin extends DecorationPlugin {
         if (node.name !== "Table") return;
 
         const { from, to } = node;
-        const nodeLineStart = view.state.doc.lineAt(from);
-        const nodeLineEnd = view.state.doc.lineAt(to);
-        const cursorInRange = ctx.selectionOverlapsRange(nodeLineStart.from, nodeLineEnd.to);
+        const startLine = view.state.doc.lineAt(from);
+        const endLine = view.state.doc.lineAt(to);
 
-        if (cursorInRange) {
-          // Cursor inside: show raw markdown with monospace styling
-          // Add line decorations for every line in the table
-          for (let i = nodeLineStart.number; i <= nodeLineEnd.number; i++) {
-            const line = view.state.doc.line(i);
-            decorations.push(tableMarkDecorations["table-line"].range(line.from));
+        // The delimiter is the second line in a valid markdown table.
+        const delimiterLineNum = startLine.number + 1;
+        if (delimiterLineNum > endLine.number) return;
 
-            if (i === nodeLineStart.number) {
-              decorations.push(tableMarkDecorations["table-line-start"].range(line.from));
-            }
-            if (i === nodeLineEnd.number) {
-              decorations.push(tableMarkDecorations["table-line-end"].range(line.from));
-            }
+        const delimiterLine = view.state.doc.line(delimiterLineNum);
+        const alignments = parseDelimiterAlignments(delimiterLine.text);
+        if (!alignments) return;
 
-            // Check if this is the delimiter line (line 2 of the table)
-            if (i === nodeLineStart.number + 1) {
-              decorations.push(tableMarkDecorations["table-delimiter"].range(line.from));
-            }
-          }
-        } else {
-          // Cursor outside: hide raw text and show rendered widget
-          const tableContent = view.state.sliceDoc(from, to);
+        for (let i = startLine.number; i <= endLine.number; i++) {
+          const line = view.state.doc.line(i);
+          const lineText = line.text;
+          const pipes = getPipePositions(lineText);
 
-          // Add line decorations to hide all lines
-          for (let i = nodeLineStart.number; i <= nodeLineEnd.number; i++) {
-            const line = view.state.doc.line(i);
-            decorations.push(tableMarkDecorations["table-rendered"].range(line.from));
+          const isHeader = i === startLine.number;
+          const isDelimiter = i === delimiterLineNum;
+          const bodyRowIndex = i - delimiterLineNum - 1;
 
-            // Hide the raw text content
-            decorations.push(tableMarkDecorations["table-hidden"].range(line.from, line.to));
+          if (isHeader) {
+            decorations.push(lineDecorations.headerRow.range(line.from));
+          } else if (isDelimiter) {
+            decorations.push(lineDecorations.delimiterRow.range(line.from));
+          } else if (bodyRowIndex % 2 === 1) {
+            decorations.push(lineDecorations.bodyRowEven.range(line.from));
+          } else {
+            decorations.push(lineDecorations.bodyRow.range(line.from));
           }
 
-          // Add the rendered table widget at the end
-          decorations.push(
-            Decoration.widget({
-              widget: new TableWidget(tableContent, from, to, this.draftlyConfig),
-              side: 1,
-              block: false,
-            }).range(to)
-          );
+          if (!isHeader && !isDelimiter && i === endLine.number) {
+            decorations.push(lineDecorations.bodyRowLast.range(line.from));
+          }
+
+          if (isDelimiter) {
+            if (line.from < line.to) {
+              decorations.push(pipeReplace.range(line.from, line.to));
+            }
+            continue;
+          }
+
+          if (pipes.length < 2) continue;
+
+          const pipeHideRanges = getPipeHideRanges(lineText);
+          for (const range of pipeHideRanges) {
+            decorations.push(pipeReplace.range(line.from + range.from, line.from + range.to));
+          }
+
+          for (let p = 0; p < pipes.length - 1; p++) {
+            if (p < pipes.length - 1) {
+              const cellStart = line.from + pipes[p]! + 1;
+              const cellEnd = line.from + pipes[p + 1]!;
+              const colIndex = p;
+              const alignment = alignments[colIndex] || "left";
+              const isLastCell = p === pipes.length - 2;
+
+              if (cellStart < cellEnd) {
+                decorations.push(getCellDeco(isHeader, alignment, isLastCell).range(cellStart, cellEnd));
+              }
+            }
+          }
         }
       },
     });
@@ -413,15 +441,12 @@ export class TablePlugin extends DecorationPlugin {
   // Keymap Handlers
   // ============================================
 
-  /**
-   * Insert a new 3×3 table at cursor position
-   */
+  /** Inserts a blank 3×3 table at the current cursor line. */
   private insertTable(view: EditorView): boolean {
     const { state } = view;
     const cursor = state.selection.main.head;
     const line = state.doc.lineAt(cursor);
 
-    // Insert at the beginning of the next line if current line has content
     const insertPos = line.text.trim() ? line.to : line.from;
 
     const template = [
@@ -434,21 +459,14 @@ export class TablePlugin extends DecorationPlugin {
     const suffix = "\n";
 
     view.dispatch({
-      changes: {
-        from: insertPos,
-        insert: prefix + template + suffix,
-      },
-      selection: {
-        anchor: insertPos + prefix.length + 2, // Position cursor in first header cell
-      },
+      changes: { from: insertPos, insert: prefix + template + suffix },
+      selection: { anchor: insertPos + prefix.length + 2 },
     });
 
     return true;
   }
 
-  /**
-   * Add a new row below the current row (Mod-Enter)
-   */
+  /** Adds a new data row below the current row (Mod-Enter). */
   private addRow(view: EditorView): boolean {
     const tableInfo = this.getTableAtCursor(view);
     if (!tableInfo) return false;
@@ -457,60 +475,45 @@ export class TablePlugin extends DecorationPlugin {
     const cursor = state.selection.main.head;
     const currentLine = state.doc.lineAt(cursor);
 
-    // Parse the table to know the column count
     const parsed = parseTableMarkdown(state.sliceDoc(tableInfo.from, tableInfo.to));
     if (!parsed) return false;
 
     const colCount = parsed.headers.length;
     const emptyRow = "| " + Array.from({ length: colCount }, () => "  ").join(" | ") + " |";
 
-    // Insert after the current line
     view.dispatch({
-      changes: {
-        from: currentLine.to,
-        insert: "\n" + emptyRow,
-      },
-      selection: {
-        anchor: currentLine.to + 3, // Position in first cell of new row
-      },
+      changes: { from: currentLine.to, insert: "\n" + emptyRow },
+      selection: { anchor: currentLine.to + 3 },
     });
 
     return true;
   }
 
-  /**
-   * Add a new column after the current column (Mod-Shift-Enter)
-   */
+  /** Adds a new column after the current one (Mod-Shift-Enter). */
   private addColumn(view: EditorView): boolean {
     const tableInfo = this.getTableAtCursor(view);
     if (!tableInfo) return false;
 
     const { state } = view;
     const cursor = state.selection.main.head;
-
-    // Find which column the cursor is in
     const currentLine = state.doc.lineAt(cursor);
     const lineText = currentLine.text;
     const cursorInLine = cursor - currentLine.from;
 
-    // Count pipes before cursor to find column index
     let colIndex = -1;
     for (let i = 0; i < cursorInLine; i++) {
       if (lineText[i] === "|") colIndex++;
     }
     colIndex = Math.max(0, colIndex);
 
-    // Get all lines of the table
     const tableText = state.sliceDoc(tableInfo.from, tableInfo.to);
     const lines = tableText.split("\n");
 
-    // Insert a new column after colIndex in each line
     const newLines = lines.map((line, lineIdx) => {
       const cells = this.splitLineToCells(line);
       const insertAfter = Math.min(colIndex, cells.length - 1);
 
       if (lineIdx === 1) {
-        // Delimiter row
         cells.splice(insertAfter + 1, 0, " -------- ");
       } else {
         cells.splice(insertAfter + 1, 0, "          ");
@@ -520,20 +523,18 @@ export class TablePlugin extends DecorationPlugin {
     });
 
     view.dispatch({
-      changes: {
-        from: tableInfo.from,
-        to: tableInfo.to,
-        insert: newLines.join("\n"),
-      },
+      changes: { from: tableInfo.from, to: tableInfo.to, insert: newLines.join("\n") },
     });
 
     return true;
   }
 
   /**
-   * Handle Enter key inside a table.
-   * - Last cell of last row: create a new row
-   * - Empty last row: remove it and move cursor after table
+   * Handle Enter inside a table.
+   *
+   * When the cursor is in the last cell of the last row:
+   * - If the row has content → add a new empty row
+   * - If the row is already empty → remove it and move below the table
    */
   private handleEnter(view: EditorView): boolean {
     const tableInfo = this.getTableAtCursor(view);
@@ -544,10 +545,8 @@ export class TablePlugin extends DecorationPlugin {
     const cursorLine = state.doc.lineAt(cursor);
     const tableEndLine = state.doc.lineAt(tableInfo.to);
 
-    // Check if cursor is on the last line of the table
     if (cursorLine.number !== tableEndLine.number) return false;
 
-    // Check if cursor is in the last cell (after the second-to-last pipe)
     const lineText = cursorLine.text;
     const cursorOffset = cursor - cursorLine.from;
     const pipes: number[] = [];
@@ -555,28 +554,24 @@ export class TablePlugin extends DecorationPlugin {
       if (lineText[i] === "|") pipes.push(i);
     }
 
-    // Cursor needs to be after the second-to-last pipe (in the last cell)
     if (pipes.length < 2) return false;
     const lastCellStart = pipes[pipes.length - 2]!;
     if (cursorOffset < lastCellStart) return false;
 
-    // If this row is empty, remove it and move cursor after the table
+    // Empty last row → remove and exit
     if (isRowEmpty(lineText)) {
-      // Remove this row (including the preceding newline)
-      const removeFrom = cursorLine.from - 1; // Include the newline before
+      const removeFrom = cursorLine.from - 1;
       const removeTo = cursorLine.to;
 
       view.dispatch({
         changes: { from: Math.max(0, removeFrom), to: removeTo },
-        selection: {
-          anchor: Math.min(Math.max(0, removeFrom) + 1, view.state.doc.length),
-        },
+        selection: { anchor: Math.min(Math.max(0, removeFrom) + 1, view.state.doc.length) },
       });
 
       return true;
     }
 
-    // Otherwise, create a new empty row
+    // Non-empty last row → add new row
     const parsed = parseTableMarkdown(state.sliceDoc(tableInfo.from, tableInfo.to));
     if (!parsed) return false;
 
@@ -584,21 +579,14 @@ export class TablePlugin extends DecorationPlugin {
     const emptyRow = "| " + Array.from({ length: colCount }, () => "  ").join(" | ") + " |";
 
     view.dispatch({
-      changes: {
-        from: cursorLine.to,
-        insert: "\n" + emptyRow,
-      },
-      selection: {
-        anchor: cursorLine.to + 3, // Position in first cell of new row
-      },
+      changes: { from: cursorLine.to, insert: "\n" + emptyRow },
+      selection: { anchor: cursorLine.to + 3 },
     });
 
     return true;
   }
 
-  /**
-   * Handle Tab key inside a table — move to next/previous cell
-   */
+  /** Tab / Shift-Tab navigation between table cells. */
   private handleTab(view: EditorView, backwards: boolean): boolean {
     const tableInfo = this.getTableAtCursor(view);
     if (!tableInfo) return false;
@@ -608,12 +596,15 @@ export class TablePlugin extends DecorationPlugin {
     const tableText = state.sliceDoc(tableInfo.from, tableInfo.to);
     const lines = tableText.split("\n");
 
-    // Collect all cell positions (skip delimiter row)
-    const cellPositions: { lineFrom: number; start: number; end: number }[] = [];
+    // Collect absolute cell positions, skipping the delimiter row.
+    const cellPositions: TableCellPosition[] = [];
+    let lineFrom = tableInfo.from;
     for (let li = 0; li < lines.length; li++) {
-      if (li === 1) continue; // Skip delimiter row
+      if (li === 1) {
+        lineFrom += lines[li]!.length + 1;
+        continue;
+      }
       const line = lines[li]!;
-      const lineFrom = tableInfo.from + lines.slice(0, li).reduce((sum, l) => sum + l.length + 1, 0);
 
       const pipes: number[] = [];
       for (let i = 0; i < line.length; i++) {
@@ -621,17 +612,17 @@ export class TablePlugin extends DecorationPlugin {
       }
 
       for (let p = 0; p < pipes.length - 1; p++) {
-        const cellStart = pipes[p]! + 1;
-        const cellEnd = pipes[p + 1]!;
         cellPositions.push({
           lineFrom,
-          start: cellStart,
-          end: cellEnd,
+          start: pipes[p]! + 1,
+          end: pipes[p + 1]!,
         });
       }
+
+      lineFrom += line.length + 1;
     }
 
-    // Find which cell the cursor is currently in
+    // Find the current cell.
     let currentCellIdx = -1;
     for (let i = 0; i < cellPositions.length; i++) {
       const cell = cellPositions[i]!;
@@ -642,10 +633,8 @@ export class TablePlugin extends DecorationPlugin {
         break;
       }
     }
-
     if (currentCellIdx === -1) return false;
 
-    // Move to next/previous cell
     const nextIdx = backwards ? currentCellIdx - 1 : currentCellIdx + 1;
     if (nextIdx < 0 || nextIdx >= cellPositions.length) return false;
 
@@ -653,15 +642,15 @@ export class TablePlugin extends DecorationPlugin {
     const cellText = state.sliceDoc(nextCell.lineFrom + nextCell.start, nextCell.lineFrom + nextCell.end);
     const trimStart = cellText.length - cellText.trimStart().length;
     const trimEnd = cellText.length - cellText.trimEnd().length;
+    const absCellStart = nextCell.lineFrom + nextCell.start;
+    const absCellEnd = nextCell.lineFrom + nextCell.end;
+    const isWhitespaceOnly = cellText.trim().length === 0;
 
-    const selectFrom = nextCell.lineFrom + nextCell.start + (trimStart > 0 ? 1 : 0);
-    const selectTo = nextCell.lineFrom + nextCell.end - (trimEnd > 0 ? 1 : 0);
+    const selectFrom = isWhitespaceOnly ? absCellStart : absCellStart + trimStart;
+    const selectTo = isWhitespaceOnly ? absCellEnd : absCellEnd - trimEnd;
 
     view.dispatch({
-      selection: {
-        anchor: selectFrom,
-        head: selectTo,
-      },
+      selection: { anchor: selectFrom, head: selectTo },
       scrollIntoView: true,
     });
 
@@ -672,9 +661,7 @@ export class TablePlugin extends DecorationPlugin {
   // Helpers
   // ============================================
 
-  /**
-   * Find the Table node at the cursor position
-   */
+  /** Finds the table syntax node containing the current cursor. */
   private getTableAtCursor(view: EditorView): { from: number; to: number } | null {
     const tree = syntaxTree(view.state);
     const cursor = view.state.selection.main.head;
@@ -687,39 +674,27 @@ export class TablePlugin extends DecorationPlugin {
         }
       },
     });
-
     return result;
   }
 
-  /**
-   * Split a table line into cells (keeping the whitespace around content)
-   */
+  /** Splits a raw table line into raw cell segments (without outer pipes). */
   private splitLineToCells(line: string): string[] {
-    let trimmed = line.trim();
-    if (trimmed.startsWith("|")) trimmed = trimmed.slice(1);
-    if (trimmed.endsWith("|")) trimmed = trimmed.slice(0, -1);
-    return trimmed.split("|");
+    return splitTableLine(line);
   }
 
   // ============================================
   // Preview Rendering
   // ============================================
 
-  override async renderToHTML(
-    node: SyntaxNode,
-    _children: string,
-    _ctx: PreviewContextLike
-  ): Promise<string | null> {
+  override async renderToHTML(node: SyntaxNode, _children: string, _ctx: PreviewContextLike): Promise<string | null> {
     if (node.name === "Table") {
       const content = _ctx.sliceDoc(node.from, node.to);
       const parsed = parseTableMarkdown(content);
-
       if (!parsed) return null;
-
       return await renderTableToHtml(parsed, this.draftlyConfig);
     }
 
-    // Sub-nodes are handled by the Table renderer
+    // Table sub-nodes are rendered by the parent table node.
     if (
       node.name === "TableHeader" ||
       node.name === "TableDelimiter" ||
@@ -739,57 +714,8 @@ export class TablePlugin extends DecorationPlugin {
 
 const theme = createTheme({
   default: {
-    // Raw table lines — monospace when cursor is inside
-    ".cm-draftly-table-line": {
-      "--radius": "0.375rem",
-      fontFamily: "var(--font-jetbrains-mono, monospace)",
-      fontSize: "0.9rem",
-      backgroundColor: "rgba(0, 0, 0, 0.02)",
-      padding: "0 0.75rem !important",
-      lineHeight: "1.6",
-      borderLeft: "1px solid var(--color-border, #e2e8f0)",
-      borderRight: "1px solid var(--color-border, #e2e8f0)",
-    },
-
-    ".cm-draftly-table-line-start": {
-      borderTopLeftRadius: "var(--radius)",
-      borderTopRightRadius: "var(--radius)",
-      borderTop: "1px solid var(--color-border, #e2e8f0)",
-    },
-
-    ".cm-draftly-table-line-end": {
-      borderBottomLeftRadius: "var(--radius)",
-      borderBottomRightRadius: "var(--radius)",
-      borderBottom: "1px solid var(--color-border, #e2e8f0)",
-    },
-
-    ".cm-draftly-table-delimiter-line": {
-      opacity: "0.5",
-    },
-
-    // Hidden table text (when cursor is not in range)
-    ".cm-draftly-table-hidden": {
-      display: "none",
-    },
-
-    // Line decoration for rendered state — hide line breaks
-    ".cm-draftly-table-rendered": {
-      padding: "0 !important",
-    },
-
-    ".cm-draftly-table-rendered br": {
-      display: "none",
-    },
-
-    // Rendered table widget container
-    ".cm-draftly-table-widget": {
-      cursor: "pointer",
-      overflow: "auto",
-      padding: "0.5rem 0",
-    },
-
-    // Table element
-    ".cm-draftly-table": {
+    ".cm-draftly-table-wrapper, .cm-draftly-table-widget": {
+      display: "table",
       width: "100%",
       borderCollapse: "separate",
       borderSpacing: "0",
@@ -799,102 +725,88 @@ const theme = createTheme({
       fontFamily: "var(--font-sans, sans-serif)",
       fontSize: "0.9375rem",
       lineHeight: "1.5",
-    },
 
-    // Table header
-    ".cm-draftly-table thead th": {
-      padding: "0rem 0.875rem",
-      fontWeight: "600",
-      borderBottom: "2px solid var(--color-border, #e2e8f0)",
-      backgroundColor: "rgba(0, 0, 0, 0.03)",
-    },
+      "& .cm-draftly-table": {
+        width: "100%",
+        borderCollapse: "separate",
+        borderSpacing: "0",
+        tableLayout: "fixed",
+      },
 
-    // Table cells
-    ".cm-draftly-table td": {
-      padding: "0rem 0.875rem",
-      borderBottom: "1px solid var(--color-border, #e2e8f0)",
-      borderRight: "1px solid var(--color-border, #e2e8f0)",
-    },
+      "& .cm-draftly-table-row": {
+        display: "table-row !important",
 
-    // Remove right border on last cell
-    ".cm-draftly-table td:last-child, .cm-draftly-table th:last-child": {
-      borderRight: "none",
-    },
+        "&.cm-draftly-table-header-row": {
+          backgroundColor: "rgba(0, 0, 0, 0.03)",
+          fontWeight: "600",
+        },
 
-    // Remove bottom border on last row
-    ".cm-draftly-table tbody tr:last-child td": {
-      borderBottom: "none",
-    },
+        "&.cm-draftly-table-row-even": {
+          backgroundColor: "rgba(0, 0, 0, 0.02)",
+        },
 
-    // Alternate row colors
-    ".cm-draftly-table tbody tr:nth-child(even)": {
-      backgroundColor: "rgba(0, 0, 0, 0.02)",
-    },
+        "&.cm-draftly-table-body-row:hover": {
+          backgroundColor: "rgba(0, 0, 0, 0.04)",
+        },
 
-    // Header cells right border
-    ".cm-draftly-table thead th:not(:last-child)": {
-      borderRight: "1px solid var(--color-border, #e2e8f0)",
-    },
+        "& .cm-draftly-table-cell": {
+          display: "table-cell",
+          padding: "0.35rem 0.875rem",
+          borderBottom: "1px solid var(--color-border, #e2e8f0)",
+          borderRight: "1px solid var(--color-border, #e2e8f0)",
+          verticalAlign: "middle",
+          textAlign: "left",
 
-    // Hover effect on rows
-    ".cm-draftly-table tbody tr:hover": {
-      backgroundColor: "rgba(0, 0, 0, 0.04)",
-    },
+          "&.cm-draftly-table-cell-last": {
+            borderRight: "none",
+          },
 
-    // Inline code in table cells
-    ".cm-draftly-table-inline-code": {
-      fontFamily: "var(--font-jetbrains-mono, monospace)",
-      fontSize: "0.85em",
-      padding: "0.1em 0.35em",
-      borderRadius: "0.25rem",
-      backgroundColor: "rgba(0, 0, 0, 0.06)",
-    },
+          "&.cm-draftly-table-th": {
+            fontWeight: "600",
+            borderBottom: "2px solid var(--color-border, #e2e8f0)",
+          },
 
-    // Links in table cells
-    ".cm-draftly-table-link": {
-      color: "var(--color-link, #0969da)",
-      textDecoration: "none",
-    },
+          "&.cm-draftly-table-cell-center": {
+            textAlign: "center",
+          },
 
-    ".cm-draftly-table-link:hover": {
-      textDecoration: "underline",
-    },
+          "&.cm-draftly-table-cell-right": {
+            textAlign: "right",
+          },
+        },
 
-    // Math in table cells
-    ".cm-draftly-table-math": {
-      fontFamily: "var(--font-jetbrains-mono, monospace)",
-      fontSize: "0.9em",
-      color: "#6a737d",
+        "&.cm-draftly-table-row-last .cm-draftly-table-cell": {
+          borderBottom: "none",
+        },
+      },
     },
   },
 
   dark: {
-    ".cm-draftly-table-line": {
-      backgroundColor: "rgba(255, 255, 255, 0.03)",
-    },
+    ".cm-draftly-table-wrapper, .cm-draftly-table-widget": {
+      border: "1px solid var(--color-border, #30363d)",
 
-    ".cm-draftly-table thead th": {
-      backgroundColor: "rgba(255, 255, 255, 0.05)",
-    },
+      "& .cm-draftly-table-row": {
+        "&.cm-draftly-table-header-row": {
+          backgroundColor: "rgba(255, 255, 255, 0.05)",
+        },
 
-    ".cm-draftly-table tbody tr:nth-child(even)": {
-      backgroundColor: "rgba(255, 255, 255, 0.02)",
-    },
+        "&.cm-draftly-table-row-even": {
+          backgroundColor: "rgba(255, 255, 255, 0.02)",
+        },
 
-    ".cm-draftly-table tbody tr:hover": {
-      backgroundColor: "rgba(255, 255, 255, 0.05)",
-    },
+        "&.cm-draftly-table-body-row:hover": {
+          backgroundColor: "rgba(255, 255, 255, 0.05)",
+        },
 
-    ".cm-draftly-table-inline-code": {
-      backgroundColor: "rgba(255, 255, 255, 0.08)",
-    },
+        "& .cm-draftly-table-cell": {
+          borderColor: "var(--color-border, #30363d)",
 
-    ".cm-draftly-table-link": {
-      color: "var(--color-link, #58a6ff)",
-    },
-
-    ".cm-draftly-table-math": {
-      color: "#8b949e",
+          "&.cm-draftly-table-th": {
+            borderBottomColor: "var(--color-border, #30363d)",
+          },
+        },
+      },
     },
   },
 });
