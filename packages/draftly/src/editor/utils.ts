@@ -80,18 +80,20 @@ export function createTheme({
 export function flattenThemeStyles(themeStyles: ThemeStyle, parentSelector?: string): ThemeStyle {
   const flattened: ThemeStyle = {};
 
-  for (const [selector, styles] of Object.entries(themeStyles)) {
-    if (typeof styles === "object" && !Array.isArray(styles)) {
-      // Flatten nested styles
-      const fullSelector = fixSelector(parentSelector ? `${parentSelector} ${selector}` : selector);
-      const nestedStyles = flattenThemeStyles(styles as ThemeStyle, fullSelector);
-      Object.assign(flattened, nestedStyles);
-    } else {
-      // Add styles to the flattened object
-      if (parentSelector) {
-        flattened[parentSelector] = { ...flattened[parentSelector], [selector]: styles };
+  for (const [selectors, styles] of Object.entries(themeStyles)) {
+    for (const selector of selectors.split(",")) {
+      if (typeof styles === "object" && !Array.isArray(styles)) {
+        // Flatten nested styles
+        const fullSelector = fixSelector(parentSelector ? `${parentSelector} ${selector}` : selector);
+        const nestedStyles = flattenThemeStyles(styles as ThemeStyle, fullSelector);
+        Object.assign(flattened, nestedStyles);
       } else {
-        flattened[selector] = styles as StyleSpec;
+        // Add styles to the flattened object
+        if (parentSelector) {
+          flattened[parentSelector] = { ...flattened[parentSelector], [selector]: styles };
+        } else {
+          flattened[selector] = styles as StyleSpec;
+        }
       }
     }
   }
