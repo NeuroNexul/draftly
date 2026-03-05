@@ -114,33 +114,35 @@ export function draftly(config: DraftlyConfig = {}): Extension[] {
   // Create plugin context for lifecycle methods
   const pluginContext: PluginContext = { config };
 
-  // Process each plugin
-  for (const plugin of allPlugins) {
-    // Call onRegister lifecycle hook
-    plugin.onRegister(pluginContext);
+  if (!disableViewPlugin) {
+    // Process each plugin
+    for (const plugin of allPlugins) {
+      // Call onRegister lifecycle hook
+      plugin.onRegister(pluginContext);
 
-    // Collect extensions via class method
-    const exts = plugin.getExtensions();
-    if (exts.length > 0) {
-      pluginExtensions.push(...exts);
-    }
+      // Collect extensions via class method
+      const exts = plugin.getExtensions();
+      if (exts.length > 0) {
+        pluginExtensions.push(...exts);
+      }
 
-    // Collect keymaps via class method
-    const keys = plugin.getKeymap();
-    if (keys.length > 0) {
-      pluginKeymaps.push(...keys);
-    }
+      // Collect keymaps via class method
+      const keys = plugin.getKeymap();
+      if (keys.length > 0) {
+        pluginKeymaps.push(...keys);
+      }
 
-    // Collect theme via class method
-    const theme = plugin.theme;
-    if (baseStyles && theme && typeof theme === "function") {
-      pluginExtensions.push(EditorView.theme(theme(configTheme)));
-    }
+      // Collect theme via class method
+      const theme = plugin.theme;
+      if (baseStyles && theme && typeof theme === "function") {
+        pluginExtensions.push(EditorView.theme(theme(configTheme)));
+      }
 
-    // Collect markdown parser extensions via class method
-    const md = plugin.getMarkdownConfig();
-    if (md) {
-      markdownExtensions.push(md);
+      // Collect markdown parser extensions via class method
+      const md = plugin.getMarkdownConfig();
+      if (md) {
+        markdownExtensions.push(md);
+      }
     }
   }
 
